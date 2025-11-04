@@ -244,4 +244,84 @@ export class Formatters {
     if (text.length <= maxLength) return text;
     return text.slice(0, maxLength - 3) + '...';
   }
+
+  /**
+   * Generic table formatter - works with any data structure
+   */
+  static genericTable(data: Record<string, any>[]): string {
+    if (data.length === 0) {
+      return chalk.yellow('No data available');
+    }
+
+    // Extract all unique keys from all objects
+    const allKeys = new Set<string>();
+    for (const item of data) {
+      Object.keys(item).forEach(key => allKeys.add(key));
+    }
+
+    const headers = Array.from(allKeys);
+
+    if (headers.length === 0) {
+      return chalk.yellow('No data available');
+    }
+
+    // Create table
+    const table = new Table({
+      head: headers.map(h => chalk.cyan(this.formatHeaderName(h))),
+      style: {
+        head: [],
+        border: ['gray'],
+      },
+      wordWrap: true,
+    });
+
+    // Add rows
+    for (const item of data) {
+      const row = headers.map(key => {
+        const value = item[key];
+        if (value === undefined || value === null) return chalk.gray('-');
+        
+        // Format based on value type
+        const strValue = String(value);
+        
+        // Highlight status-like fields
+        if (key.toLowerCase().includes('status') || key.toLowerCase().includes('enabled')) {
+          return this.formatStatusValue(strValue);
+        }
+        
+        return chalk.white(strValue.slice(0, 50) + (strValue.length > 50 ? '...' : ''));
+      });
+      
+      table.push(row);
+    }
+
+    return table.toString();
+  }
+
+  /**
+   * Format header name (convert snake_case to Title Case)
+   */
+  private static formatHeaderName(header: string): string {
+    return header
+      .split(/[_-]/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+
+  /**
+   * Format status-like values with colors
+   */
+  private static formatStatusValue(value: string): string {
+    const lower = value.toLowerCase();
+    
+    if (lower.includes('enable') || lower.includes('✓') || lower === 'true' || lower === 'on') {
+      return chalk.green(value);
+    } else if (lower.includes('disable') || lower.includes('✗') || lower === 'false' || lower === 'off') {
+      return chalk.red(value);
+    } else if (lower.includes('unknown') || lower.includes('pending')) {
+      return chalk.yellow(value);
+    }
+    
+    return chalk.white(value);
+  }
 }

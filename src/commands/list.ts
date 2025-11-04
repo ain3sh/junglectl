@@ -8,6 +8,9 @@ import { Formatters } from '../ui/formatters.js';
 import { withSpinner } from '../ui/spinners.js';
 import { MCPJungleExecutor } from '../core/executor.js';
 import { OutputParser } from '../core/parser.js';
+import { ResourceHandler } from '../core/resource-handler.js';
+import { CLIIntrospector } from '../core/introspection.js';
+import { DynamicMenuBuilder } from '../core/menu-builder.js';
 import chalk from 'chalk';
 
 const executor = new MCPJungleExecutor();
@@ -99,34 +102,41 @@ export async function listPrompts(options: {
 }
 
 /**
- * Interactive browse menu
+ * Interactive browse menu - DYNAMIC VERSION
+ * Automatically discovers available list commands from MCPJungle
  */
 export async function browseInteractive(registryUrl?: string): Promise<void> {
+  const introspector = new CLIIntrospector(registryUrl);
+  const menuBuilder = new DynamicMenuBuilder(introspector);
+  const resourceHandler = new ResourceHandler(registryUrl);
+
   while (true) {
-    const choice = await Prompts.select('What would you like to browse?', [
-      { value: 'tools', name: '🔧 Tools', description: 'Browse available tools' },
-      { value: 'servers', name: '🔌 Servers', description: 'View registered servers' },
-      { value: 'groups', name: '📦 Tool Groups', description: 'Browse tool groups' },
-      { value: 'prompts', name: '💬 Prompts', description: 'View available prompts' },
-      { value: 'back', name: '← Back', description: 'Return to main menu' },
-    ]);
+    // Build menu dynamically from discovered 'list' subcommands
+    let choices;
+    try {
+      choices = await menuBuilder.buildSubmenu('list');
+    } catch {
+      // Fallback to hardcoded if introspection fails
+      choices = [
+        { value: 'servers', name: '🔌 Servers', description: 'View registered servers' },
+        { value: 'tools', name: '🔧 Tools', description: 'Browse available tools' },
+        { value: 'groups', name: '📦 Tool Groups', description: 'Browse tool groups' },
+        { value: 'prompts', name: '💬 Prompts', description: 'View available prompts' },
+        { value: 'back', name: '← Back', description: 'Return to main menu' },
+      ];
+    }
+
+    const choice = await Prompts.select('What would you like to browse?', choices);
 
     if (choice === 'back') break;
 
     try {
-      switch (choice) {
-        case 'tools':
-          await browseTools(registryUrl);
-          break;
-        case 'servers':
-          await listServers(registryUrl);
-          break;
-        case 'groups':
-          await listGroups(registryUrl);
-          break;
-        case 'prompts':
-          await listPrompts({ registryUrl });
-          break;
+      // Handle tools separately for filtering option
+      if (choice === 'tools') {
+        await browseTools(registryUrl);
+      } else {
+        // Generic handler for any other resource type
+        await resourceHandler.listResource(choice, { registryUrl });
       }
 
       // Pause before returning to menu

@@ -16,6 +16,8 @@ import { groupsMenuInteractive } from './commands/groups.js';
 import { enableDisableMenuInteractive } from './commands/enable-disable.js';
 import { settingsMenuInteractive } from './commands/settings.js';
 import { loadConfig, saveConfig, isFirstRun, getConfigFilePath } from './core/config.js';
+import { CLIIntrospector } from './core/introspection.js';
+import { DynamicMenuBuilder } from './core/menu-builder.js';
 import type { AppConfig } from './types/config.js';
 import chalk from 'chalk';
 
@@ -96,64 +98,73 @@ async function mainMenu(): Promise<void> {
     }
   }
 
+  // Create introspector and menu builder (dynamic!)
+  const introspector = new CLIIntrospector(config.registryUrl);
+  const menuBuilder = new DynamicMenuBuilder(introspector);
+
   // Main loop
   while (true) {
     try {
-      const action = await Prompts.select('What would you like to do?', [
-        {
-          value: 'invoke',
-          name: '🚀 Invoke Tool',
-          description: 'Execute tool with interactive input',
-        },
-        {
-          value: 'browse',
-          name: '📋 Browse Resources',
-          description: 'View servers, tools, groups, prompts',
-        },
-        {
-          value: 'groups',
-          name: '📦 Manage Tool Groups',
-          description: 'Create, view, and delete tool groups',
-        },
-        {
-          value: 'enable-disable',
-          name: '⚡ Enable/Disable',
-          description: 'Manage tool and server status',
-        },
-        {
-          value: 'register',
-          name: '➕ Register MCP Server',
-          description: 'Add a new MCP server to the registry',
-        },
-        {
-          value: 'servers',
-          name: '🔌 Quick View: Servers',
-          description: 'Show all registered servers',
-        },
-        {
-          value: 'tools',
-          name: '🔧 Quick View: Tools',
-          description: 'Show all available tools',
-        },
-        {
-          value: 'settings',
-          name: '⚙️  Settings',
-          description: 'Configure JungleCTL',
-        },
-        {
-          value: 'exit',
-          name: '❌ Exit',
-          description: 'Quit JungleCTL',
-        },
-      ]);
+      // Build menu dynamically from MCPJungle structure
+      let menuChoices;
+      try {
+        menuChoices = await menuBuilder.buildMainMenu();
+      } catch {
+        // Fallback to hardcoded menu if introspection fails
+        menuChoices = [
+          { value: 'list', name: '📋 Browse Resources', description: 'View servers, tools, groups, prompts' },
+          { value: 'invoke', name: '🔧 Invoke Tool', description: 'Execute tool with interactive input' },
+          { value: 'register', name: '➕ Register MCP Server', description: 'Add a new MCP server to the registry' },
+          { value: 'create', name: '✨ Create', description: 'Create groups and other entities' },
+          { value: 'enable', name: '✅ Enable', description: 'Enable tools and servers' },
+          { value: 'disable', name: '❌ Disable', description: 'Disable tools and servers' },
+          { value: 'settings', name: '⚙️  Settings', description: 'Configure JungleCTL' },
+          { value: 'exit', name: '❌ Exit', description: 'Quit JungleCTL' },
+        ];
+      }
+
+      const action = await Prompts.select('What would you like to do?', menuChoices);
 
       console.log(); // Spacing
 
+      // Route based on action (dynamic + special cases)
       switch (action) {
+        case 'list':
+          // Special handling for browse (has submenu)
+          await browseInteractive(config.registryUrl);
+          break;
+
         case 'invoke':
+          // Special handling for invoke (complex workflow)
           await invokeToolInteractive(config.registryUrl);
           break;
 
+        case 'register':
+          // Special handling for register (complex wizard)
+          await registerServerInteractive(config.registryUrl);
+          break;
+
+        case 'create':
+          // Handle create submenu (groups, etc.)
+          await groupsMenuInteractive(config.registryUrl);
+          break;
+
+        case 'enable':
+        case 'disable':
+          // Handle enable/disable menu
+          await enableDisableMenuInteractive(config.registryUrl);
+          break;
+
+        case 'settings':
+          // App-specific settings
+          config = await settingsMenuInteractive(config);
+          break;
+
+        case 'exit':
+          console.log(chalk.cyan('\n👋 Goodbye!\n'));
+          process.exit(0);
+
+        // Legacy cases (still support old menu structure)
         case 'browse':
           await browseInteractive(config.registryUrl);
           break;
@@ -166,10 +177,6 @@ async function mainMenu(): Promise<void> {
           await enableDisableMenuInteractive(config.registryUrl);
           break;
 
-        case 'register':
-          await registerServerInteractive(config.registryUrl);
-          break;
-
         case 'servers':
           await listServers(config.registryUrl);
           await Prompts.confirm('Press Enter to continue', true);
@@ -180,13 +187,10 @@ async function mainMenu(): Promise<void> {
           await Prompts.confirm('Press Enter to continue', true);
           break;
 
-        case 'settings':
-          config = await settingsMenuInteractive(config);
-          break;
-
-        case 'exit':
-          console.log(chalk.cyan('\n👋 Goodbye!\n'));
-          process.exit(0);
+        default:
+          // Unknown command
+          console.log(Formatters.warning(`Command "${action}" not yet implemented`));
+          await Prompts.confirm('Press Enter to continue', true);
       }
 
       // Clear screen before next iteration

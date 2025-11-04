@@ -364,4 +364,190 @@ export class OutputParser {
 
     return clean.trim();
   }
+
+  /**
+   * Generic table parser - works with any table format
+   * Automatically detects columns and parses to objects
+   */
+  static parseGenericTable(output: string): Record<string, any>[] {
+    const clean = stripAnsi(output).trim();
+
+    if (!clean || clean.includes('no ') || clean.includes('connection refused')) {
+      return [];
+    }
+
+    // Try JSON first
+    if (this.looksLikeJson(clean)) {
+      try {
+        const parsed = JSON.parse(clean);
+        return Array.isArray(parsed) ? parsed : [parsed];
+      } catch {
+        // Not valid JSON, continue to table parsing
+      }
+    }
+
+    // Parse as table
+    return this.parseTableToObjects(clean);
+  }
+
+  /**
+   * Check if output looks like JSON
+   */
+  private static looksLikeJson(text: string): boolean {
+    const trimmed = text.trim();
+    return (trimmed.startsWith('{') || trimmed.startsWith('[')) &&
+           (trimmed.endsWith('}') || trimmed.endsWith(']'));
+  }
+
+  /**
+   * Parse table structure to array of objects
+   */
+  private static parseTableToObjects(table: string): Record<string, any>[] {
+    const lines = table.split('\n').map(l => l.trim()).filter(Boolean);
+
+    if (lines.length === 0) return [];
+
+    // Find header and separator lines
+    let headerLine = '';
+    let headerIndex = -1;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+      
+      // Skip box drawing lines
+      if (this.isBoxLine(line)) continue;
+
+      // Found header (first non-box line)
+      if (!headerLine && !this.isSeparatorLine(line)) {
+        headerLine = line;
+        headerIndex = i;
+        break;
+      }
+    }
+
+    if (!headerLine) return [];
+
+    // Detect column boundaries
+    const columns = this.detectColumnBoundaries(headerLine, lines[headerIndex + 1]);
+
+    // Extract headers
+    const headers = columns.map(col => {
+      const header = headerLine.substring(col.start, col.end);
+      return header ? header.trim().replace(/[│|]/g, '').trim() : '';
+    }).filter(Boolean);
+
+    if (headers.length === 0) return [];
+
+    // Parse data rows
+    const rows: Record<string, any>[] = [];
+
+    for (let i = headerIndex + 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+
+      // Skip separator and box lines
+      if (this.isSeparatorLine(line) || this.isBoxLine(line)) continue;
+
+      // Parse data row
+      const row: Record<string, any> = {};
+      let hasData = false;
+
+      columns.forEach((col, idx) => {
+        if (idx < headers.length && line) {
+          const substr = line.substring(col.start, col.end);
+          const value = substr ? substr.trim().replace(/[│|]/g, '').trim() : '';
+          
+          if (value && headers[idx]) {
+            row[headers[idx]!] = value;
+            hasData = true;
+          }
+        }
+      });
+
+      if (hasData) {
+        rows.push(row);
+      }
+    }
+
+    return rows;
+  }
+
+  /**
+   * Detect column boundaries from table structure
+   */
+  private static detectColumnBoundaries(header: string, nextLine?: string): Array<{start: number, end: number}> {
+    const columns: Array<{start: number, end: number}> = [];
+
+    // Method 1: Use separator line if available
+    if (nextLine && this.isSeparatorLine(nextLine)) {
+      let inColumn = false;
+      let start = 0;
+
+      for (let i = 0; i < nextLine.length; i++) {
+        const char = nextLine[i];
+
+        if ((char === '-' || char === '─') && !inColumn) {
+          start = i;
+          inColumn = true;
+        } else if (char !== '-' && char !== '─' && inColumn) {
+          columns.push({ start, end: i });
+          inColumn = false;
+        }
+      }
+
+      if (inColumn) {
+        columns.push({ start, end: nextLine.length });
+      }
+
+      if (columns.length > 0) return columns;
+    }
+
+    // Method 2: Use pipe/box separators
+    if (header.includes('│') || header.includes('|')) {
+      const parts = header.split(/[│|]/);
+      let pos = 0;
+
+      for (const part of parts) {
+        if (part.trim()) {
+          const start = header.indexOf(part, pos);
+          const end = start + part.length;
+          columns.push({ start, end });
+          pos = end;
+        }
+      }
+
+      if (columns.length > 0) return columns;
+    }
+
+    // Method 3: Detect from whitespace (2+ spaces)
+    const parts = header.split(/\s{2,}/);
+    let pos = 0;
+
+    for (const part of parts) {
+      if (part.trim()) {
+        const start = header.indexOf(part, pos);
+        const end = start + part.length;
+        columns.push({ start, end });
+        pos = end;
+      }
+    }
+
+    return columns;
+  }
+
+  /**
+   * Check if line is a separator (dashes, etc.)
+   */
+  private static isSeparatorLine(line: string): boolean {
+    const cleaned = line.replace(/[│|┌┐└┘├┤┬┴┼]/g, '').trim();
+    return cleaned.length > 0 && /^[-─═]+$/.test(cleaned);
+  }
+
+  /**
+   * Check if line is box drawing (no data)
+   */
+  private static isBoxLine(line: string): boolean {
+    return /^[┌┐└┘├┤┬┴┼─│═║╔╗╚╝╠╣╦╩╬]+$/.test(line.trim());
+  }
 }
