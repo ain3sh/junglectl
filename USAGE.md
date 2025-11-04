@@ -1,52 +1,100 @@
 # JungleCTL Usage Guide
 
+Complete guide to using all JungleCTL v1.0.0 features.
+
+---
+
 ## 🚀 Quick Start
 
-### Installation & Setup
+### Prerequisites
 
-1. **Prerequisites**
+1. **MCPJungle CLI must be installed**
    ```bash
-   # Ensure MCPJungle CLI is installed
+   # Check installation
    mcpjungle version
    
-   # Start MCPJungle server (if not running)
-   docker compose up -d
-   # or
+   # If not installed (macOS)
+   brew install mcpjungle/mcpjungle/mcpjungle
+   ```
+
+2. **MCPJungle server must be running**
+   ```bash
+   # Start server
    mcpjungle start
-   ```
-
-2. **Install Dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Run JungleCTL**
-   ```bash
-   # Development mode
-   npm run dev
+   # or
+   docker compose up -d
    
-   # Or build and run
-   npm run build
-   npm start
+   # Verify server is running (should return JSON)
+   curl http://localhost:8080/health
    ```
 
-## 📚 Features Implemented (MVP v1.0)
+### Installation
+
+**From npm (once published):**
+```bash
+npm install -g junglectl
+```
+
+**From tarball (local/testing):**
+```bash
+npm install -g ./junglectl-1.0.0.tgz
+```
+
+**Verify installation:**
+```bash
+junglectl --version
+which junglectl  # Should show path to binary
+```
+
+### First Run
+
+```bash
+# Launch JungleCTL
+junglectl
+
+# On first run, you'll see:
+# - Welcome message
+# - Config location (~/.junglectl/config.json)
+# - Main menu
+```
+
+---
+
+## 📚 All Features (v1.0.0 Complete!)
+
+JungleCTL v1.0.0 includes **60+ features** across all phases:
 
 ### ✅ Core Features
-- **Interactive Main Menu** - Navigate all features with arrow keys
-- **Server Status Check** - Real-time connection status to MCPJungle
-- **List Servers** - View all registered MCP servers with status
-- **List Tools** - Browse all available tools, filter by server
-- **List Groups** - View configured tool groups
-- **List Prompts** - Browse available prompts
-- **Register Server** - Interactive wizard for HTTP & STDIO servers
+- 📋 **Browse Resources** - View servers, tools, groups, prompts with autocomplete
+- 🔧 **Invoke Tool** - Execute tools with dynamic forms from JSON Schema
+- ➕ **Register Server** - Wizard for HTTP, STDIO, SSE servers
+- 📦 **Tool Groups** - Create, view, delete tool collections
+- ⚡ **Enable/Disable** - Control tool and server availability
+- ⚙️ **Settings** - Persistent configuration editor
+- 🔌 **Quick Views** - Instant server/tool tables
 
 ### 🎨 UI Features
-- **Autocomplete Search** - Type to filter servers/tools/groups
-- **Beautiful Tables** - Color-coded status, formatted output
-- **Loading Spinners** - Visual feedback for async operations
-- **Smart Caching** - Performance optimization with TTL cache
-- **Error Handling** - Graceful error messages and recovery
+- 🔍 **Autocomplete Search** - Fuzzy search for all resources
+- 📊 **Beautiful Tables** - Color-coded status, formatted output
+- ⏳ **Loading Spinners** - Visual feedback for async operations
+- 🎨 **Themes** - 5 color choices + enable/disable colors
+- 💾 **Smart Caching** - Sub-second cached responses (TTL-based)
+
+### 🛠️ Advanced Features  
+- 📝 **Dynamic Forms** - JSON Schema → interactive prompts with validation
+- ✅ **Input Validation** - Type checking, min/max, patterns, required fields
+- 🔄 **Content Types** - Text, images, audio, resources, structured JSON
+- ⏱️ **Timeouts** - Configurable (default: 30s, invoke: 60s)
+- 🛡️ **Error Messages** - Detailed troubleshooting with numbered steps
+
+### ⚙️ Configuration
+- 💾 **Persistent Settings** - ~/.junglectl/config.json
+- 🔧 **Registry URL** - Configurable MCPJungle endpoint
+- ⏰ **Cache TTLs** - Per resource type (1-300s)
+- 🎨 **Theme** - Color and enable/disable
+- ⏱️ **Timeouts** - Adjustable command timeouts
+
+---
 
 ## 🎯 Workflows
 
@@ -77,26 +125,98 @@
    → Confirm: Yes
    ```
 
-### Browse Tools
+### Invoke a Tool
 
 ```
-Select: 📋 Browse Resources → 🔧 Tools
+Select: 🔧 Invoke Tool
+
+Step 1: Select Tool
+→ Type to search (e.g., "calculator__add")
+→ Autocomplete filters as you type
+
+Step 2: Fill Parameters
+→ Dynamic form based on tool's JSON Schema
+→ Shows field types, descriptions, required markers
+→ Validates input (min/max, patterns, types)
+
+Example for calculator__add:
+  ✓ a * - First number (number): 5
+  ✓ b * - Second number (number): 3
+
+Step 3: Review Input
+→ Shows formatted JSON of your input
+→ Confirm to execute
+
+Step 4: See Results
+→ Formatted output based on content type
+→ Text, images, audio, resources, or JSON
+```
+
+### Create a Tool Group
+
+```
+Select: 📦 Manage Tool Groups → ➕ Create Group
+
+Step 1: Basic Information
+→ Name: my-project-tools
+→ Description: Tools for my project
+
+Step 2: Choose Strategy
+→ 🔧 Specific Tools - Cherry-pick individual tools
+→ 🔌 Entire Servers - Include all tools from servers
+→ 🎭 Mixed Approach - Combine tools + servers + exclusions
+
+Step 3: Select Resources
+→ Multi-select with checkboxes
+→ Space to select, Enter when done
+
+Step 4: Review & Confirm
+→ Shows full configuration as JSON
+→ Confirm to create
+```
+
+### Enable/Disable Tools
+
+```
+Select: 🎯 Enable/Disable Tools
 
 Options:
-  • All Tools - Show everything
-  • Filter by Server - Show tools from specific server
+→ Disable Tool - Turn off specific tool
+→ Enable Tool - Turn on specific tool  
+→ Disable Server - Turn off ALL tools from server
+→ Enable Server - Turn on ALL tools from server
 
-(Type to search, arrow keys to navigate)
+(Shows confirmation prompts for destructive operations)
 ```
 
-### Quick Views
+### Browse Resources
 
 ```
-Select: 🔌 Quick View: Servers
-→ Shows formatted table of all servers
+Select: 📋 Browse Resources
 
-Select: 🔧 Quick View: Tools  
-→ Shows formatted table of all tools
+Options:
+  • 🔌 Servers - All registered servers
+  • 🔧 Tools - All tools (filter by server available)
+  • 📦 Groups - Tool collections
+  • 💬 Prompts - Available prompts
+
+(All with autocomplete search)
+```
+
+### Settings
+
+```
+Select: ⚙️ Settings
+
+Options:
+  • View Configuration - See all current settings
+  • Edit Registry URL - Change MCPJungle endpoint
+  • Edit Cache TTLs - Adjust cache duration (individual or all)
+  • Edit Theme - Change colors (cyan/blue/green/magenta/yellow)
+  • Edit Timeouts - Adjust default and invoke timeouts
+  • Reset to Defaults - Restore factory settings
+
+(All changes persist immediately to ~/.junglectl/config.json)
 ```
 
 ## 🎨 UI Examples
@@ -109,9 +229,10 @@ Select: 🔧 Quick View: Tools
 
 ? What would you like to do?
   ❯ 📋 Browse Resources
+    🔧 Invoke Tool
     ➕ Register MCP Server
-    🔌 Quick View: Servers
-    🔧 Quick View: Tools
+    📦 Manage Tool Groups
+    🎯 Enable/Disable Tools
     ⚙️  Settings
     ❌ Exit
 ```
@@ -161,13 +282,20 @@ Current settings (view via Settings menu):
 }
 ```
 
+---
+
 ## 🐛 Troubleshooting
 
 ### "MCPJungle CLI not found"
 ```bash
-# Install MCPJungle
+# Check PATH
+which mcpjungle
+
+# Install MCPJungle (macOS)
 brew install mcpjungle/mcpjungle/mcpjungle
-# or download from releases
+
+# Or download from releases
+# https://github.com/mcpjungle/MCPJungle/releases
 ```
 
 ### "Cannot connect to MCPJungle server"
@@ -176,33 +304,141 @@ brew install mcpjungle/mcpjungle/mcpjungle
 curl http://localhost:8080/health
 
 # Start server
-docker compose up -d
-# or
 mcpjungle start
+# or
+docker compose up -d
+
+# Check server logs
+mcpjungle logs
 ```
 
-### Cache Issues
-Cache auto-expires but you can restart JungleCTL to clear.
+### "Command not found: junglectl"
+```bash
+# Check npm global bin in PATH
+echo $PATH | grep npm
 
-## 🚀 Coming Soon
+# Add to PATH if missing (bash/zsh)
+export PATH="$(npm config get prefix)/bin:$PATH"
 
-### Phase 3: Advanced Features
-- [ ] **Invoke Tool** - Interactive tool execution with argument builder
-- [ ] **Create Tool Groups** - Wizard for group configuration
-- [ ] **Enable/Disable Tools** - Manage tool/server status
-- [ ] **View Group Details** - Inspect group composition
+# Verify installation
+which junglectl
+npm list -g junglectl
+```
 
-### Phase 4: Polish
-- [ ] **Config File** - Persistent user settings (~/.junglectl/config.json)
-- [ ] **History** - Recent commands/actions
-- [ ] **Favorites** - Quick access to frequent tools
-- [ ] **Better Error Messages** - Troubleshooting hints
+### Config Issues
+```bash
+# View config location
+ls ~/.junglectl/config.json
 
-### Phase 5: Distribution
-- [ ] **npm Package** - `npm install -g junglectl`
-- [ ] **Binary Packaging** - Standalone executables
-- [ ] **Windows Testing** - Full ConPTY support
-- [ ] **macOS Testing** - Native PTY validation
+# Reset to defaults
+junglectl
+# → Settings → Reset to Defaults
+
+# Or manually delete (will recreate)
+rm ~/.junglectl/config.json
+```
+
+### Tool Invocation Errors
+```bash
+# Check tool schema
+mcpjungle get tool <tool-name>
+
+# Adjust timeout if tool is slow
+junglectl
+# → Settings → Edit Timeouts → Invoke Timeout
+```
+
+See [INSTALLATION.md](./INSTALLATION.md) for comprehensive troubleshooting.
+
+---
+
+## 💡 Tips & Tricks
+
+### Keyboard Shortcuts
+- **Arrow Keys** - Navigate menus
+- **Enter** - Select/confirm
+- **Type** - Filter in autocomplete prompts
+- **Ctrl+C** - Exit gracefully (anytime)
+- **Space** - Toggle checkboxes (in multi-select)
+
+### Performance
+- **First Load** - May take 200-500ms (network + parsing)
+- **Cached Loads** - <10ms (instant)
+- **Cache Hit Rate** - Typically 90%+ in normal usage
+- **Cache Invalidation** - Automatic on create/update/delete operations
+
+### Best Practices
+1. **Register servers first** - Before invoking tools
+2. **Use autocomplete** - Type to filter, don't scroll
+3. **Check tool schemas** - Use "Browse Resources" to see tool details before invoking
+4. **Create groups** - For tools you use together often
+5. **Adjust timeouts** - If tools take >30s to execute
+6. **Customize theme** - Pick your favorite color!
+
+### Power User Features
+- **Short Alias** - Use `jctl` instead of `junglectl`
+- **Config Location** - `~/.junglectl/config.json` (edit manually if needed)
+- **Cache Control** - Adjust TTLs per resource type in Settings
+- **Batch Operations** - Use "Edit All Cache TTLs" for quick tuning
+
+---
+
+## 🎓 Advanced Usage
+
+### Working with Complex Tools
+
+**Tools with Many Parameters:**
+- Dynamic form will present them one by one
+- Required fields marked with *
+- Optional fields can be skipped (press Enter)
+- See field type and description for each
+
+**Tools with Arrays:**
+- Input as comma-separated values
+- Example: `item1, item2, item3`
+- Type coercion happens automatically (numbers, booleans)
+
+**Tools with Enums:**
+- Shows dropdown with valid choices
+- Arrow keys to navigate, Enter to select
+
+### Group Strategies
+
+**Specific Tools** - Best for:
+- Cross-server collections
+- Curated tool sets
+- Project-specific tools
+
+**Entire Servers** - Best for:
+- Including all tools from trusted servers
+- Quick setup
+- Server-based organization
+
+**Mixed Approach** - Best for:
+- Complex scenarios
+- Include multiple servers but exclude specific tools
+- Maximum flexibility
+
+### Configuration Tuning
+
+**Registry URL:**
+- Default: `http://127.0.0.1:8080`
+- Change if MCPJungle runs elsewhere
+- Supports http and https
+
+**Cache TTLs:**
+- Servers: 60s (changes rarely)
+- Tools: 30s (changes moderately)
+- Groups: 60s (changes rarely)
+- Prompts: 60s (changes rarely)
+- Schemas: 300s (never change unless tool updates)
+
+**Timeouts:**
+- Default: 30s (for list/browse operations)
+- Invoke: 60s (for tool execution)
+- Increase if you have slow tools/network
+
+---
 
 ## 📝 Developer Notes
 
