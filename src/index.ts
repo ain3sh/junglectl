@@ -14,16 +14,46 @@ import { browseInteractive, listServers, listTools } from './commands/list.js';
 import { invokeToolInteractive } from './commands/invoke.js';
 import { groupsMenuInteractive } from './commands/groups.js';
 import { enableDisableMenuInteractive } from './commands/enable-disable.js';
-import { DEFAULT_CONFIG } from './types/config.js';
+import { settingsMenuInteractive } from './commands/settings.js';
+import { loadConfig, saveConfig, isFirstRun, getConfigFilePath } from './core/config.js';
+import type { AppConfig } from './types/config.js';
 import chalk from 'chalk';
 
-// Configuration
-const config = DEFAULT_CONFIG;
+/**
+ * Show first-run welcome message
+ */
+async function showWelcomeIfFirstRun(): Promise<void> {
+  if (await isFirstRun()) {
+    console.log(chalk.cyan.bold('\n  👋 Welcome to JungleCTL!\n'));
+    console.log(chalk.gray('  This is your first run. Your preferences will be saved to:'));
+    console.log(chalk.gray(`  ${getConfigFilePath()}\n`));
+    console.log(chalk.gray('  You can change settings anytime from the main menu.\n'));
+  }
+}
 
 /**
  * Main menu
  */
 async function mainMenu(): Promise<void> {
+  // Load configuration
+  let config: AppConfig;
+  try {
+    config = await loadConfig();
+    
+    // Save config on first run
+    if (await isFirstRun()) {
+      await saveConfig(config);
+      await showWelcomeIfFirstRun();
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Brief pause to read message
+    }
+  } catch (error) {
+    console.error(Formatters.error('Failed to load configuration'));
+    console.error((error as Error).message);
+    console.log(chalk.gray('\nUsing default configuration...\n'));
+    const { DEFAULT_CONFIG } = await import('./types/config.js');
+    config = DEFAULT_CONFIG;
+  }
+
   // Check if mcpjungle is available
   const isAvailable = await MCPJungleExecutor.isAvailable();
   if (!isAvailable) {
@@ -151,7 +181,7 @@ async function mainMenu(): Promise<void> {
           break;
 
         case 'settings':
-          await showSettings();
+          config = await settingsMenuInteractive(config);
           break;
 
         case 'exit':
@@ -176,25 +206,7 @@ async function mainMenu(): Promise<void> {
   }
 }
 
-/**
- * Settings menu
- */
-async function showSettings(): Promise<void> {
-  console.log(Formatters.header('Settings'));
-  
-  console.log(chalk.bold('Current Configuration:\n'));
-  console.log(Formatters.prettyJson({
-    'Registry URL': config.registryUrl,
-    'Cache TTL': {
-      servers: `${config.cacheTTL.servers / 1000}s`,
-      tools: `${config.cacheTTL.tools / 1000}s`,
-    },
-    'Theme': config.theme.primaryColor,
-  }));
 
-  console.log(chalk.gray('\n(Configuration editing coming soon)\n'));
-  await Prompts.confirm('Press Enter to return', true);
-}
 
 /**
  * Error handler
