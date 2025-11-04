@@ -6,7 +6,9 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Build outputs
-dist/
+# NOTE: dist/ is NOT ignored for npx compatibility from GitHub
+# For npx github:ain3sh/junglectl to work, dist/ must be committed
+# dist/
 build/
 *.tsbuildinfo
 

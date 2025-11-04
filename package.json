@@ -15,7 +15,8 @@
     "LICENSE",
     "CHANGELOG.md",
     "USAGE.md",
-    "INSTALLATION.md"
+    "INSTALLATION.md",
+    "NPX_USAGE.md"
   ],
   "scripts": {
     "dev": "tsx src/index.ts",
@@ -44,12 +45,15 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/username/junglectl.git"
+    "url": "git+https://github.com/ain3sh/junglectl.git"
   },
   "bugs": {
-    "url": "https://github.com/username/junglectl/issues"
+    "url": "https://github.com/ain3sh/junglectl/issues"
   },
-  "homepage": "https://github.com/username/junglectl#readme",
+  "homepage": "https://github.com/ain3sh/junglectl#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=18.0.0"
   },

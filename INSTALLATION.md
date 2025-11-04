@@ -44,24 +44,54 @@ brew install mcpjungle/mcpjungle/mcpjungle
 
 ---
 
-## Quick Installation (Global)
+## Quick Installation
 
-### From npm Registry (Recommended)
+### Option 1: Run with npx (Recommended - No Installation!)
 
-Once published to npm:
+The fastest way to use JungleCTL without installing anything:
 
 ```bash
+# Run directly from GitHub (always latest)
+npx github:ain3sh/junglectl
+
+# Or from npm (once published)
+npx junglectl
+```
+
+**Benefits of npx:**
+- ✅ No installation required
+- ✅ Always runs the latest version
+- ✅ No global namespace pollution
+- ✅ Perfect for one-time or occasional use
+- ✅ Works immediately on any machine with Node.js
+
+### Option 2: Global Installation
+
+For frequent use, install globally:
+
+```bash
+# From npm Registry (once published)
 npm install -g junglectl
+
+# From GitHub
+npm install -g github:ain3sh/junglectl
+
+# From Tarball (local testing)
+npm install -g ./junglectl-1.0.0.tgz
 ```
 
 This installs JungleCTL globally, making `junglectl` and `jctl` commands available everywhere.
 
-### From Tarball (Local Testing)
-
-If you have a `.tgz` file:
+### Verify Installation
 
 ```bash
-npm install -g ./junglectl-1.0.0.tgz
+# With npx (no installation)
+npx github:ain3sh/junglectl --version 2>/dev/null || echo "Ready to run!"
+
+# If installed globally
+junglectl --version
+jctl --version  # Short alias
+which junglectl  # Should show installation path
 ```
 
 ---
@@ -73,7 +103,7 @@ For contributing or local development:
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/username/junglectl.git
+git clone https://github.com/ain3sh/junglectl.git
 cd junglectl
 ```
 

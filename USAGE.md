@@ -30,18 +30,33 @@ Complete guide to using all JungleCTL v1.0.0 features.
 
 ### Installation
 
-**From npm (once published):**
+**Quick Start with npx (Recommended - No Installation!):**
 ```bash
-npm install -g junglectl
+# Run directly from GitHub (latest version)
+npx github:ain3sh/junglectl
+
+# Or from npm (once published)
+npx junglectl
 ```
 
-**From tarball (local/testing):**
+**Global Installation (for frequent use):**
 ```bash
+# From npm (once published)
+npm install -g junglectl
+
+# From GitHub
+npm install -g github:ain3sh/junglectl
+
+# From tarball (local/testing)
 npm install -g ./junglectl-1.0.0.tgz
 ```
 
 **Verify installation:**
 ```bash
+# With npx
+npx github:ain3sh/junglectl --version 2>/dev/null || echo "Ready!"
+
+# If installed globally
 junglectl --version
 which junglectl  # Should show path to binary
 ```
@@ -49,7 +64,10 @@ which junglectl  # Should show path to binary
 ### First Run
 
 ```bash
-# Launch JungleCTL
+# With npx (no installation)
+npx github:ain3sh/junglectl
+
+# Or if installed globally
 junglectl
 
 # On first run, you'll see:

@@ -1,0 +1,122 @@
+import { Prompts } from '../ui/prompts.js';
+import { Formatters } from '../ui/formatters.js';
+import { withSpinner } from '../ui/spinners.js';
+import { MCPJungleExecutor } from '../core/executor.js';
+import { OutputParser } from '../core/parser.js';
+import { ResourceHandler } from '../core/resource-handler.js';
+import { CLIIntrospector } from '../core/introspection.js';
+import { DynamicMenuBuilder } from '../core/menu-builder.js';
+import chalk from 'chalk';
+const executor = new MCPJungleExecutor();
+export async function listServers(registryUrl) {
+    const servers = await withSpinner('Fetching servers...', async () => {
+        const result = await executor.execute(['list', 'servers'], { registryUrl });
+        return OutputParser.parseServers(result.stdout);
+    }, { successMessage: 'Servers loaded' });
+    console.log('\n' + Formatters.serversTable(servers) + '\n');
+    if (servers.length > 0) {
+        console.log(chalk.gray(`Total: ${servers.length} server(s)\n`));
+    }
+}
+export async function listTools(options = {}) {
+    const args = ['list', 'tools'];
+    if (options.serverFilter) {
+        args.push('--server', options.serverFilter);
+    }
+    const tools = await withSpinner(options.serverFilter
+        ? `Fetching tools for ${options.serverFilter}...`
+        : 'Fetching all tools...', async () => {
+        const result = await executor.execute(args, { registryUrl: options.registryUrl });
+        return OutputParser.parseTools(result.stdout);
+    }, { successMessage: 'Tools loaded' });
+    console.log('\n' + Formatters.toolsTable(tools) + '\n');
+    if (tools.length > 0) {
+        console.log(chalk.gray(`Total: ${tools.length} tool(s)\n`));
+    }
+}
+export async function listGroups(registryUrl) {
+    const groups = await withSpinner('Fetching tool groups...', async () => {
+        const result = await executor.execute(['list', 'groups'], { registryUrl });
+        return OutputParser.parseGroups(result.stdout);
+    }, { successMessage: 'Groups loaded' });
+    console.log('\n' + Formatters.groupsTable(groups) + '\n');
+    if (groups.length > 0) {
+        console.log(chalk.gray(`Total: ${groups.length} group(s)\n`));
+    }
+}
+export async function listPrompts(options = {}) {
+    const args = ['list', 'prompts'];
+    if (options.serverFilter) {
+        args.push('--server', options.serverFilter);
+    }
+    const prompts = await withSpinner('Fetching prompts...', async () => {
+        const result = await executor.execute(args, { registryUrl: options.registryUrl });
+        return OutputParser.parsePrompts(result.stdout);
+    }, { successMessage: 'Prompts loaded' });
+    console.log('\n' + Formatters.promptsTable(prompts) + '\n');
+    if (prompts.length > 0) {
+        console.log(chalk.gray(`Total: ${prompts.length} prompt(s)\n`));
+    }
+}
+export async function browseInteractive(registryUrl) {
+    const introspector = new CLIIntrospector(registryUrl);
+    const menuBuilder = new DynamicMenuBuilder(introspector);
+    const resourceHandler = new ResourceHandler(registryUrl);
+    while (true) {
+        let choices;
+        try {
+            choices = await menuBuilder.buildSubmenu('list');
+        }
+        catch {
+            choices = [
+                { value: 'servers', name: '🔌 Servers', description: 'View registered servers' },
+                { value: 'tools', name: '🔧 Tools', description: 'Browse available tools' },
+                { value: 'groups', name: '📦 Tool Groups', description: 'Browse tool groups' },
+                { value: 'prompts', name: '💬 Prompts', description: 'View available prompts' },
+                { value: 'back', name: '← Back', description: 'Return to main menu' },
+            ];
+        }
+        const choice = await Prompts.select('What would you like to browse?', choices);
+        if (choice === 'back')
+            break;
+        try {
+            if (choice === 'tools') {
+                await browseTools(registryUrl);
+            }
+            else {
+                await resourceHandler.listResource(choice, { registryUrl });
+            }
+            await Prompts.confirm('Continue?', true);
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                console.error(Formatters.error(error.message));
+            }
+            await Prompts.confirm('Continue?', true);
+        }
+    }
+}
+async function browseTools(registryUrl) {
+    const filterChoice = await Prompts.select('How would you like to view tools?', [
+        { value: 'all', name: 'All Tools', description: 'Show all available tools' },
+        { value: 'by-server', name: 'Filter by Server', description: 'Show tools from specific server' },
+    ]);
+    if (filterChoice === 'all') {
+        await listTools({ registryUrl });
+    }
+    else {
+        try {
+            const server = await Prompts.selectServer('Select server to filter by', registryUrl);
+            await listTools({ serverFilter: server, registryUrl });
+        }
+        catch (error) {
+            if (error instanceof Error && error.message.includes('No servers')) {
+                console.log(Formatters.warning('No servers registered yet'));
+            }
+            else {
+                throw error;
+            }
+        }
+    }
+}
+//# sourceMappingURL=list.js.map

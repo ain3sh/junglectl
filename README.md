@@ -74,9 +74,24 @@ junglectl
 
 ### Quick Install
 
+#### Option 1: Run with npx (Recommended - No Installation Required!)
+
+```bash
+# Run directly from GitHub (latest version)
+npx github:ain3sh/junglectl
+
+# Run from npm (once published)
+npx junglectl
+```
+
+#### Option 2: Global Installation
+
 ```bash
 # From npm (once published)
 npm install -g junglectl
+
+# From GitHub
+npm install -g github:ain3sh/junglectl
 
 # From tarball (local testing)
 npm install -g ./junglectl-1.0.0.tgz
@@ -85,14 +100,21 @@ npm install -g ./junglectl-1.0.0.tgz
 ### Verify Installation
 
 ```bash
+# If installed globally
 junglectl --version
 jctl --version  # Short alias also available
+
+# With npx
+npx junglectl --version
 ```
 
 ### First Run
 
 ```bash
-# Start JungleCTL
+# With npx (no installation needed)
+npx github:ain3sh/junglectl
+
+# Or if installed globally
 junglectl
 ```
 
@@ -213,6 +235,8 @@ Edit from Settings menu or manually edit config file.
 
 - **[Installation Guide](./INSTALLATION.md)** - Complete setup instructions
 - **[Usage Guide](./USAGE.md)** - Detailed feature documentation
+- **[NPX Usage Guide](./NPX_USAGE.md)** - Run without installation using npx
+- **[GitHub Setup Guide](./GITHUB_SETUP.md)** - For repository maintainers
 - **[Changelog](./CHANGELOG.md)** - Version history and changes
 - **[MCPJungle Docs](./docs/MCPJUNGLE_README.md)** - MCPJungle CLI reference
 
@@ -336,6 +360,10 @@ Built with ❤️ for the MCPJungle community
 **Ready to tame the jungle?** 🌴
 
 ```bash
+# Quick start with npx (no installation required!)
+npx github:ain3sh/junglectl
+
+# Or install globally
 npm install -g junglectl
 junglectl
 ```
