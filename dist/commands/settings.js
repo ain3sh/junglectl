@@ -9,21 +9,28 @@ export async function settingsMenuInteractive(config) {
     while (true) {
         try {
             console.log(chalk.gray('Press ESC to go back\n'));
-            const action = await Prompts.select('Settings', [
+            const settingsChoices = [
                 { value: 'view', name: '👁️  View Configuration', description: 'Display current settings' },
-                { value: 'registry', name: '🔗 Edit Registry URL', description: 'Change MCPJungle server URL' },
-                { value: 'cache', name: '⏱️  Edit Cache Settings', description: 'Configure cache TTL values' },
-                { value: 'theme', name: '🎨 Edit Theme', description: 'Customize colors and appearance' },
-                { value: 'timeout', name: '⏲️  Edit Timeouts', description: 'Configure operation timeouts' },
-                { value: 'reset', name: '🔄 Reset to Defaults', description: 'Restore default settings' },
-                { value: 'back', name: '← Back', description: 'Return to main menu' },
-            ]);
+                { value: 'cli', name: '🔄 Switch CLI', description: 'Change target CLI tool' },
+            ];
+            if (currentConfig.targetCLI === 'mcpjungle') {
+                settingsChoices.push({
+                    value: 'registry',
+                    name: '🔗 Edit Registry URL',
+                    description: 'Change MCPJungle server URL',
+                });
+            }
+            settingsChoices.push({ value: 'cache', name: '⏱️  Edit Cache Settings', description: 'Configure cache TTL values' }, { value: 'theme', name: '🎨 Edit Theme', description: 'Customize colors and appearance' }, { value: 'timeout', name: '⏲️  Edit Timeouts', description: 'Configure operation timeouts' }, { value: 'reset', name: '🔄 Reset to Defaults', description: 'Restore default settings' }, { value: 'back', name: '← Back', description: 'Return to main menu' });
+            const action = await Prompts.select('Settings', settingsChoices);
             if (action === 'back')
                 break;
             try {
                 switch (action) {
                     case 'view':
                         await viewConfig(currentConfig);
+                        break;
+                    case 'cli':
+                        currentConfig = await editTargetCLI(currentConfig);
                         break;
                     case 'registry':
                         currentConfig = await editRegistryUrl(currentConfig);
@@ -64,27 +71,38 @@ async function viewConfig(config) {
     console.log(Formatters.header('Current Configuration'));
     const displayConfig = {
         'Version': config.version,
-        'Registry URL': config.registryUrl,
+        'Target CLI': config.targetCLI,
+        'CLI Path': config.cliPath || '(default)',
+        'Default Args': config.defaultArgs.length > 0 ? config.defaultArgs.join(' ') : '(none)',
         'Cache TTL': {
-            'Servers': `${config.cacheTTL.servers / 1000}s`,
-            'Tools': `${config.cacheTTL.tools / 1000}s`,
-            'Groups': `${config.cacheTTL.groups / 1000}s`,
-            'Prompts': `${config.cacheTTL.prompts / 1000}s`,
+            'Structure': `${config.cacheTTL.structure / 1000}s`,
+            'Output': `${config.cacheTTL.output / 1000}s`,
         },
         'Timeouts': {
             'Default': `${config.timeout.default / 1000}s`,
-            'Tool Invocation': `${config.timeout.invoke / 1000}s`,
+            'Introspection': `${config.timeout.introspection / 1000}s`,
+            'Execution': `${config.timeout.execute / 1000}s`,
         },
         'Theme': {
             'Primary Color': config.theme.primaryColor,
             'Colors Enabled': config.theme.enableColors,
         },
-        'Experimental': {
-            'SSE Support': config.experimental.enableSseSupport,
+        'Execution': {
+            'Capture History': config.execution.captureHistory,
+            'Max History Size': config.execution.maxHistorySize,
+            'Show Confidence': config.execution.showConfidence,
         },
+        ...(config.registryUrl && { 'Legacy Registry URL': config.registryUrl }),
     };
     console.log(Formatters.prettyJson(displayConfig));
     console.log(chalk.gray(`\nConfiguration file: ${getConfigFilePath()}\n`));
+}
+async function editTargetCLI(config) {
+    const { switchCLIInteractive } = await import('./switch-cli.js');
+    const updatedConfig = await switchCLIInteractive(config);
+    await saveConfig(updatedConfig);
+    console.log(Formatters.success('\n✓ CLI switched and config saved\n'));
+    return updatedConfig;
 }
 async function editRegistryUrl(config) {
     console.log(Formatters.header('Edit Registry URL'));
@@ -113,32 +131,28 @@ async function editRegistryUrl(config) {
 async function editCacheSettings(config) {
     while (true) {
         const setting = await Prompts.select('Cache Settings', [
-            { value: 'servers', name: `Servers Cache (currently ${config.cacheTTL.servers / 1000}s)` },
-            { value: 'tools', name: `Tools Cache (currently ${config.cacheTTL.tools / 1000}s)` },
-            { value: 'groups', name: `Groups Cache (currently ${config.cacheTTL.groups / 1000}s)` },
-            { value: 'prompts', name: `Prompts Cache (currently ${config.cacheTTL.prompts / 1000}s)` },
+            { value: 'structure', name: `Structure Cache (currently ${config.cacheTTL.structure / 1000}s)` },
+            { value: 'output', name: `Output Cache (currently ${config.cacheTTL.output / 1000}s)` },
             { value: 'all', name: 'Set All to Same Value', description: 'Update all cache TTLs at once' },
             { value: 'back', name: '← Back' },
         ]);
         if (setting === 'back')
             break;
-        const seconds = await Prompts.textInput('TTL in seconds (1-300)', {
-            default: String(config.cacheTTL.servers / 1000),
+        const seconds = await Prompts.textInput('TTL in seconds (1-600)', {
+            default: String(config.cacheTTL.structure / 1000),
             validate: (val) => {
                 const num = Number(val);
                 if (isNaN(num))
                     return 'Must be a valid number';
-                if (num < 1 || num > 300)
-                    return 'Must be between 1 and 300 seconds';
+                if (num < 1 || num > 600)
+                    return 'Must be between 1 and 600 seconds';
                 return true;
             },
         });
         const milliseconds = Number(seconds) * 1000;
         if (setting === 'all') {
-            config.cacheTTL.servers = milliseconds;
-            config.cacheTTL.tools = milliseconds;
-            config.cacheTTL.groups = milliseconds;
-            config.cacheTTL.prompts = milliseconds;
+            config.cacheTTL.structure = milliseconds;
+            config.cacheTTL.output = milliseconds;
             console.log(Formatters.success('All cache TTLs updated'));
         }
         else {
@@ -181,19 +195,21 @@ async function editTimeoutSettings(config) {
     while (true) {
         const setting = await Prompts.select('Timeout Settings', [
             { value: 'default', name: `Default Timeout (currently ${config.timeout.default / 1000}s)`, description: 'For most operations' },
-            { value: 'invoke', name: `Tool Invocation Timeout (currently ${config.timeout.invoke / 1000}s)`, description: 'For tool execution' },
+            { value: 'introspection', name: `Introspection Timeout (currently ${config.timeout.introspection / 1000}s)`, description: 'For help parsing' },
+            { value: 'execute', name: `Execution Timeout (currently ${config.timeout.execute / 1000}s)`, description: 'For command execution' },
             { value: 'back', name: '← Back' },
         ]);
         if (setting === 'back')
             break;
-        const seconds = await Prompts.textInput('Timeout in seconds (1-300)', {
+        const maxSeconds = setting === 'introspection' ? 60 : 300;
+        const seconds = await Prompts.textInput(`Timeout in seconds (1-${maxSeconds})`, {
             default: String(config.timeout[setting] / 1000),
             validate: (val) => {
                 const num = Number(val);
                 if (isNaN(num))
                     return 'Must be a valid number';
-                if (num < 1 || num > 300)
-                    return 'Must be between 1 and 300 seconds';
+                if (num < 1 || num > maxSeconds)
+                    return `Must be between 1 and ${maxSeconds} seconds`;
                 return true;
             },
         });

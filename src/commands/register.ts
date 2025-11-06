@@ -273,9 +273,11 @@ async function registerServer(config: ServerConfig, registryUrl?: string): Promi
 
     await fs.writeFile(tempFile, JSON.stringify(config, null, 2), 'utf-8');
 
+    // Create executor with registry URL if provided (legacy MCP support)
+    const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
+
     // Execute registration
-    await executor.execute(['register', '-c', tempFile], {
-      registryUrl,
+    await exec.execute(['register', '-c', tempFile], {
       timeout: 15000,
     });
 

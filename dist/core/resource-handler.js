@@ -16,9 +16,8 @@ export class ResourceHandler {
         const data = await withSpinner(options.serverFilter
             ? `Fetching ${resourceType} for ${options.serverFilter}...`
             : `Fetching ${resourceType}...`, async () => {
-            const result = await this.executor.execute(args, {
-                registryUrl: options.registryUrl
-            });
+            const exec = options.registryUrl ? new MCPJungleExecutor(options.registryUrl) : this.executor;
+            const result = await exec.execute(args);
             return this.parseResourceOutput(resourceType, result.stdout);
         }, { successMessage: `${this.capitalize(resourceType)} loaded` });
         this.displayResource(resourceType, data);

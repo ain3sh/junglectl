@@ -197,8 +197,8 @@ async function registerServer(config, registryUrl) {
         const tempDir = os.tmpdir();
         const tempFile = path.join(tempDir, `mcpjungle-${Date.now()}.json`);
         await fs.writeFile(tempFile, JSON.stringify(config, null, 2), 'utf-8');
-        await executor.execute(['register', '-c', tempFile], {
-            registryUrl,
+        const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
+        await exec.execute(['register', '-c', tempFile], {
             timeout: 15000,
         });
         await fs.unlink(tempFile).catch(() => {

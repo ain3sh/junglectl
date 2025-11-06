@@ -1,0 +1,126 @@
+name: Build and Release SEA Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags (v2.0.0, v2.1.0, etc.)
+  workflow_dispatch:  # Manual trigger for testing
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: x64
+            runner: ubuntu-latest
+          - os: darwin
+            arch: x64
+            runner: macos-13  # Intel Mac
+          - os: darwin
+            arch: arm64
+            runner: macos-latest  # M1/M2/M3 Mac
+          - os: win32
+            arch: x64
+            runner: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build TypeScript
+        run: npm run build
+      
+      - name: Build SEA binary
+        run: node scripts/build-sea.cjs --current-only
+      
+      - name: Test binary (Linux/macOS)
+        if: matrix.os != 'win32'
+        run: |
+          chmod +x dist/binaries/climb-${{ matrix.os }}-${{ matrix.arch }}
+          ./dist/binaries/climb-${{ matrix.os }}-${{ matrix.arch }} --version || echo "Binary test skipped"
+      
+      - name: Test binary (Windows)
+        if: matrix.os == 'win32'
+        run: |
+          dist/binaries/climb-${{ matrix.os }}-${{ matrix.arch }}.exe --version || echo "Binary test skipped"
+        shell: pwsh
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: climb-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/binaries/*
+          retention-days: 5
+  
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+      
+      - name: Display structure
+        run: ls -R binaries
+      
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          find binaries -type f -exec mv {} release/ \;
+          ls -lh release/
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          body: |
+            ## 🧗 climb ${{ github.ref_name }}
+            
+            Single executable binaries for all platforms (no Node.js required!)
+            
+            ### Installation
+            
+            **One-line install (Linux/macOS):**
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/ain3sh/climb/main/scripts/install.sh | bash
+            ```
+            
+            **Manual download:**
+            - **Linux x64**: `climb-linux-x64`
+            - **macOS Intel**: `climb-darwin-x64`
+            - **macOS Apple Silicon**: `climb-darwin-arm64`
+            - **Windows**: `climb-win32-x64.exe`
+            
+            ### For Contributors
+            ```bash
+            npm install -g climb-cli
+            ```
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

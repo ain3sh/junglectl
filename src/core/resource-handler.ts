@@ -41,9 +41,9 @@ export class ResourceHandler {
         ? `Fetching ${resourceType} for ${options.serverFilter}...`
         : `Fetching ${resourceType}...`,
       async () => {
-        const result = await this.executor.execute(args, { 
-          registryUrl: options.registryUrl 
-        });
+        // Create executor with registry URL if provided (legacy MCP support)
+        const exec = options.registryUrl ? new MCPJungleExecutor(options.registryUrl) : this.executor;
+        const result = await exec.execute(args);
         
         // Try specialized parser first, fall back to generic
         return this.parseResourceOutput(resourceType, result.stdout);

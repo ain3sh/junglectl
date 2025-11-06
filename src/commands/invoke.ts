@@ -35,10 +35,12 @@ export async function invokeToolInteractive(registryUrl?: string): Promise<void>
     const spinner = new Spinner();
     spinner.start(`Loading schema for ${tool}...`);
 
+    // Create executor with registry URL if provided (legacy MCP support)
+    const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
+
     let schemaResult;
     try {
-      schemaResult = await executor.execute(['usage', tool], {
-        registryUrl,
+      schemaResult = await exec.execute(['usage', tool], {
         timeout: 10000,
       });
       spinner.succeed('Schema loaded');
@@ -88,10 +90,9 @@ export async function invokeToolInteractive(registryUrl?: string): Promise<void>
 
     let invokeResult;
     try {
-      invokeResult = await executor.execute(
+      invokeResult = await exec.execute(
         ['invoke', tool, '--input', JSON.stringify(input)],
         {
-          registryUrl,
           timeout: 60000, // 60s timeout for slow tools
         }
       );

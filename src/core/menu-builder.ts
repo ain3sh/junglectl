@@ -17,8 +17,9 @@ export interface MenuChoice {
 export class DynamicMenuBuilder {
   private introspector: CLIIntrospector;
 
-  constructor(introspector: CLIIntrospector) {
-    this.introspector = introspector;
+  constructor(_config: any) {
+    // Config parameter reserved for future use
+    this.introspector = new CLIIntrospector();
   }
 
   /**
@@ -28,47 +29,37 @@ export class DynamicMenuBuilder {
     const structure = await this.introspector.getCommandStructure();
     const choices: MenuChoice[] = [];
 
-    // Priority order for commands (manual for UX consistency)
-    const priorityOrder = [
-      'list',      // Browse Resources
-      'invoke',    // Invoke Tool
-      'register',  // Register Server
-      'create',    // Create entities
-      'get',       // Get entities
-      'enable',    // Enable
-      'disable',   // Disable
-      'update',    // Update
-      'delete',    // Delete
-      'deregister',// Deregister
-    ];
+    // Sort commands by confidence (highest first)
+    const sortedCommands = structure.commands
+      .filter(c => this.isInteractive(c))
+      .sort((a, b) => {
+        // Prefer high confidence
+        const confA = a.confidence || 0;
+        const confB = b.confidence || 0;
+        if (confB !== confA) {
+          return confB - confA;
+        }
+        // Alphabetical as tiebreaker
+        return a.name.localeCompare(b.name);
+      });
 
-    // Add commands in priority order
-    for (const cmdName of priorityOrder) {
-      const cmd = structure.commands.find(c => c.name === cmdName);
-      if (cmd && this.isInteractive(cmd)) {
-        choices.push(this.formatMenuItem(cmd));
-      }
+    // Add top commands (limit to 10 for clean menu)
+    for (const cmd of sortedCommands.slice(0, 10)) {
+      choices.push(this.formatMenuItem(cmd));
     }
 
-    // Add any other interactive commands not in priority list
-    for (const cmd of structure.commands) {
-      if (this.isInteractive(cmd) && !priorityOrder.includes(cmd.name)) {
-        choices.push(this.formatMenuItem(cmd));
-      }
-    }
-
-    // Always add Settings (app-specific, not MCPJungle command)
+    // Always add Settings (app-specific)
     choices.push({
       value: 'settings',
       name: '⚙️  Settings',
-      description: 'Configure JungleCTL preferences',
+      description: 'Configure climb preferences',
     });
 
     // Always add Exit
     choices.push({
       value: 'exit',
       name: '❌ Exit',
-      description: 'Quit JungleCTL',
+      description: 'Quit climb',
     });
 
     return choices;

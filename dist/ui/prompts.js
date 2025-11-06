@@ -7,9 +7,10 @@ import chalk from 'chalk';
 const executor = new MCPJungleExecutor();
 export class Prompts {
     static async selectServer(message = 'Select a server', registryUrl) {
+        const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
         const servers = await cache.get('servers', async () => {
             try {
-                const result = await executor.execute(['list', 'servers'], { registryUrl });
+                const result = await exec.execute(['list', 'servers']);
                 return OutputParser.parseServers(result.stdout);
             }
             catch {
@@ -35,13 +36,14 @@ export class Prompts {
         });
     }
     static async selectTool(message = 'Select a tool', serverFilter, registryUrl) {
+        const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
         const cacheKey = serverFilter ? `tools_${serverFilter}` : 'tools';
         const tools = await cache.get(cacheKey, async () => {
             try {
                 const args = ['list', 'tools'];
                 if (serverFilter)
                     args.push('--server', serverFilter);
-                const result = await executor.execute(args, { registryUrl });
+                const result = await exec.execute(args);
                 return OutputParser.parseTools(result.stdout);
             }
             catch {
@@ -91,9 +93,10 @@ export class Prompts {
         });
     }
     static async selectMultipleTools(message = 'Select tools to include', registryUrl) {
+        const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
         const tools = await cache.get('tools', async () => {
             try {
-                const result = await executor.execute(['list', 'tools'], { registryUrl });
+                const result = await exec.execute(['list', 'tools']);
                 return OutputParser.parseTools(result.stdout);
             }
             catch {
@@ -115,9 +118,10 @@ export class Prompts {
         return result;
     }
     static async selectMultipleServers(message = 'Select servers to include', registryUrl) {
+        const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
         const servers = await cache.get('servers', async () => {
             try {
-                const result = await executor.execute(['list', 'servers'], { registryUrl });
+                const result = await exec.execute(['list', 'servers']);
                 return OutputParser.parseServers(result.stdout);
             }
             catch {
@@ -166,9 +170,10 @@ export class Prompts {
         });
     }
     static async selectGroup(message = 'Select a tool group', registryUrl) {
+        const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
         const groups = await cache.get('groups', async () => {
             try {
-                const result = await executor.execute(['list', 'groups'], { registryUrl });
+                const result = await exec.execute(['list', 'groups']);
                 return OutputParser.parseGroups(result.stdout);
             }
             catch {
@@ -194,13 +199,14 @@ export class Prompts {
         });
     }
     static async selectPrompt(message = 'Select a prompt', serverFilter, registryUrl) {
+        const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
         const cacheKey = serverFilter ? `prompts_${serverFilter}` : 'prompts';
         const prompts = await cache.get(cacheKey, async () => {
             try {
                 const args = ['list', 'prompts'];
                 if (serverFilter)
                     args.push('--server', serverFilter);
-                const result = await executor.execute(args, { registryUrl });
+                const result = await exec.execute(args);
                 return OutputParser.parsePrompts(result.stdout);
             }
             catch {

@@ -135,13 +135,13 @@ export async function createGroupInteractive(registryUrl) {
         console.log(chalk.yellow('\n✗ Group creation cancelled'));
         return;
     }
+    const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
     const spinner = new Spinner();
     spinner.start('Creating group...');
     try {
         const tempFile = path.join(os.tmpdir(), `group-${Date.now()}.json`);
         await fs.writeFile(tempFile, JSON.stringify(config, null, 2));
-        await executor.execute(['create', 'group', '-c', tempFile], {
-            registryUrl,
+        await exec.execute(['create', 'group', '-c', tempFile], {
             timeout: 15000,
         });
         await fs.unlink(tempFile).catch(() => { });
@@ -157,16 +157,18 @@ export async function createGroupInteractive(registryUrl) {
 export async function viewGroupInteractive(registryUrl) {
     console.log(Formatters.header('View Group Details'));
     const group = await Prompts.selectGroup('Select group to view', registryUrl);
+    const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
     const result = await withSpinner(`Fetching details for "${group}"...`, async () => {
-        return await executor.execute(['get', 'group', group], { registryUrl });
+        return await exec.execute(['get', 'group', group]);
     }, { successMessage: 'Details loaded' });
     console.log('\n' + Formatters.header(group));
     console.log(result.stdout);
     console.log();
 }
 export async function listGroupsInteractive(registryUrl) {
+    const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
     const groups = await withSpinner('Fetching tool groups...', async () => {
-        const result = await executor.execute(['list', 'groups'], { registryUrl });
+        const result = await exec.execute(['list', 'groups']);
         return OutputParser.parseGroups(result.stdout);
     }, { successMessage: 'Groups loaded' });
     console.log('\n' + Formatters.groupsTable(groups) + '\n');
@@ -184,10 +186,11 @@ export async function deleteGroupInteractive(registryUrl) {
         console.log(chalk.yellow('\n✗ Deletion cancelled'));
         return;
     }
+    const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
     const spinner = new Spinner();
     spinner.start('Deleting group...');
     try {
-        await executor.execute(['delete', 'group', group], { registryUrl });
+        await exec.execute(['delete', 'group', group]);
         cache.invalidate('groups');
         spinner.succeed(`Group "${group}" deleted`);
     }

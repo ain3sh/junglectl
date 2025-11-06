@@ -12,6 +12,13 @@ pnpm-debug.log*
 build/
 *.tsbuildinfo
 
+# SEA build artifacts (exclude from git)
+dist/bundle.js
+dist/bundle.js.map
+dist/sea-prep.blob
+dist/binaries/
+sea-config.json
+
 # Environment
 .env
 .env.local

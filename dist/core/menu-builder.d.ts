@@ -1,4 +1,3 @@
-import { CLIIntrospector } from './introspection.js';
 export interface MenuChoice {
     value: string;
     name: string;
@@ -6,7 +5,7 @@ export interface MenuChoice {
 }
 export declare class DynamicMenuBuilder {
     private introspector;
-    constructor(introspector: CLIIntrospector);
+    constructor(_config: any);
     buildMainMenu(): Promise<MenuChoice[]>;
     buildSubmenu(command: string): Promise<MenuChoice[]>;
     private isInteractive;

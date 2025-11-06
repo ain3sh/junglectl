@@ -87,11 +87,14 @@ export async function disableToolInteractive(registryUrl?: string): Promise<void
     return;
   }
 
+  // Create executor with registry URL if provided (legacy MCP support)
+  const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
+  
   const spinner = new Spinner();
   spinner.start('Disabling tool...');
 
   try {
-    await executor.execute(['disable', 'tool', tool], { registryUrl });
+    await exec.execute(['disable', 'tool', tool]);
 
     // Invalidate tools cache
     cache.invalidate('tools');
@@ -111,11 +114,14 @@ export async function enableToolInteractive(registryUrl?: string): Promise<void>
 
   const tool = await Prompts.selectTool('Select tool to enable', undefined, registryUrl);
 
+  // Create executor with registry URL if provided (legacy MCP support)
+  const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
+  
   const spinner = new Spinner();
   spinner.start('Enabling tool...');
 
   try {
-    await executor.execute(['enable', 'tool', tool], { registryUrl });
+    await exec.execute(['enable', 'tool', tool]);
 
     // Invalidate tools cache
     cache.invalidate('tools');
@@ -144,11 +150,14 @@ export async function disableServerInteractive(registryUrl?: string): Promise<vo
     return;
   }
 
+  // Create executor with registry URL if provided (legacy MCP support)
+  const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
+  
   const spinner = new Spinner();
   spinner.start('Disabling server...');
 
   try {
-    await executor.execute(['disable', 'server', server], { registryUrl });
+    await exec.execute(['disable', 'server', server]);
 
     // Invalidate all caches (servers and tools affected)
     cache.invalidate();
@@ -169,11 +178,14 @@ export async function enableServerInteractive(registryUrl?: string): Promise<voi
 
   const server = await Prompts.selectServer('Select server to enable', registryUrl);
 
+  // Create executor with registry URL if provided (legacy MCP support)
+  const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
+  
   const spinner = new Spinner();
   spinner.start('Enabling server...');
 
   try {
-    await executor.execute(['enable', 'server', server], { registryUrl });
+    await exec.execute(['enable', 'server', server]);
 
     // Invalidate all caches
     cache.invalidate();

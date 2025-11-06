@@ -173,6 +173,9 @@ export async function createGroupInteractive(registryUrl?: string): Promise<void
   }
 
   // Execute creation
+  // Create executor with registry URL if provided (legacy MCP support)
+  const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
+  
   const spinner = new Spinner();
   spinner.start('Creating group...');
 
@@ -182,8 +185,7 @@ export async function createGroupInteractive(registryUrl?: string): Promise<void
     await fs.writeFile(tempFile, JSON.stringify(config, null, 2));
 
     // Execute registration
-    await executor.execute(['create', 'group', '-c', tempFile], {
-      registryUrl,
+    await exec.execute(['create', 'group', '-c', tempFile], {
       timeout: 15000,
     });
 
@@ -210,10 +212,13 @@ export async function viewGroupInteractive(registryUrl?: string): Promise<void> 
 
   const group = await Prompts.selectGroup('Select group to view', registryUrl);
 
+  // Create executor with registry URL if provided (legacy MCP support)
+  const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
+
   const result = await withSpinner(
     `Fetching details for "${group}"...`,
     async () => {
-      return await executor.execute(['get', 'group', group], { registryUrl });
+      return await exec.execute(['get', 'group', group]);
     },
     { successMessage: 'Details loaded' }
   );
@@ -227,10 +232,13 @@ export async function viewGroupInteractive(registryUrl?: string): Promise<void> 
  * List all groups
  */
 export async function listGroupsInteractive(registryUrl?: string): Promise<void> {
+  // Create executor with registry URL if provided (legacy MCP support)
+  const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
+  
   const groups = await withSpinner(
     'Fetching tool groups...',
     async () => {
-      const result = await executor.execute(['list', 'groups'], { registryUrl });
+      const result = await exec.execute(['list', 'groups']);
       return OutputParser.parseGroups(result.stdout);
     },
     { successMessage: 'Groups loaded' }
@@ -260,11 +268,14 @@ export async function deleteGroupInteractive(registryUrl?: string): Promise<void
     return;
   }
 
+  // Create executor with registry URL if provided (legacy MCP support)
+  const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
+  
   const spinner = new Spinner();
   spinner.start('Deleting group...');
 
   try {
-    await executor.execute(['delete', 'group', group], { registryUrl });
+    await exec.execute(['delete', 'group', group]);
 
     // Invalidate cache
     cache.invalidate('groups');

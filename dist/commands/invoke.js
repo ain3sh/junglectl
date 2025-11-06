@@ -15,10 +15,10 @@ export async function invokeToolInteractive(registryUrl) {
         console.log(chalk.bold('\n📋 Fetching Tool Schema\n'));
         const spinner = new Spinner();
         spinner.start(`Loading schema for ${tool}...`);
+        const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
         let schemaResult;
         try {
-            schemaResult = await executor.execute(['usage', tool], {
-                registryUrl,
+            schemaResult = await exec.execute(['usage', tool], {
                 timeout: 10000,
             });
             spinner.succeed('Schema loaded');
@@ -59,8 +59,7 @@ export async function invokeToolInteractive(registryUrl) {
         spinner.start(`Running ${tool}...`);
         let invokeResult;
         try {
-            invokeResult = await executor.execute(['invoke', tool, '--input', JSON.stringify(input)], {
-                registryUrl,
+            invokeResult = await exec.execute(['invoke', tool, '--input', JSON.stringify(input)], {
                 timeout: 60000,
             });
             spinner.succeed('Execution complete');

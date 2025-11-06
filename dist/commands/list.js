@@ -9,8 +9,9 @@ import { DynamicMenuBuilder } from '../core/menu-builder.js';
 import chalk from 'chalk';
 const executor = new MCPJungleExecutor();
 export async function listServers(registryUrl) {
+    const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
     const servers = await withSpinner('Fetching servers...', async () => {
-        const result = await executor.execute(['list', 'servers'], { registryUrl });
+        const result = await exec.execute(['list', 'servers']);
         return OutputParser.parseServers(result.stdout);
     }, { successMessage: 'Servers loaded' });
     console.log('\n' + Formatters.serversTable(servers) + '\n');
@@ -19,6 +20,7 @@ export async function listServers(registryUrl) {
     }
 }
 export async function listTools(options = {}) {
+    const exec = options.registryUrl ? new MCPJungleExecutor(options.registryUrl) : executor;
     const args = ['list', 'tools'];
     if (options.serverFilter) {
         args.push('--server', options.serverFilter);
@@ -26,7 +28,7 @@ export async function listTools(options = {}) {
     const tools = await withSpinner(options.serverFilter
         ? `Fetching tools for ${options.serverFilter}...`
         : 'Fetching all tools...', async () => {
-        const result = await executor.execute(args, { registryUrl: options.registryUrl });
+        const result = await exec.execute(args);
         return OutputParser.parseTools(result.stdout);
     }, { successMessage: 'Tools loaded' });
     console.log('\n' + Formatters.toolsTable(tools) + '\n');
@@ -35,8 +37,9 @@ export async function listTools(options = {}) {
     }
 }
 export async function listGroups(registryUrl) {
+    const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
     const groups = await withSpinner('Fetching tool groups...', async () => {
-        const result = await executor.execute(['list', 'groups'], { registryUrl });
+        const result = await exec.execute(['list', 'groups']);
         return OutputParser.parseGroups(result.stdout);
     }, { successMessage: 'Groups loaded' });
     console.log('\n' + Formatters.groupsTable(groups) + '\n');
@@ -45,12 +48,13 @@ export async function listGroups(registryUrl) {
     }
 }
 export async function listPrompts(options = {}) {
+    const exec = options.registryUrl ? new MCPJungleExecutor(options.registryUrl) : executor;
     const args = ['list', 'prompts'];
     if (options.serverFilter) {
         args.push('--server', options.serverFilter);
     }
     const prompts = await withSpinner('Fetching prompts...', async () => {
-        const result = await executor.execute(args, { registryUrl: options.registryUrl });
+        const result = await exec.execute(args);
         return OutputParser.parsePrompts(result.stdout);
     }, { successMessage: 'Prompts loaded' });
     console.log('\n' + Formatters.promptsTable(prompts) + '\n');

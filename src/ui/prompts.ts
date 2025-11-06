@@ -21,9 +21,12 @@ export class Prompts {
     message: string = 'Select a server',
     registryUrl?: string
   ): Promise<string> {
+    // Create executor with registry URL if provided (legacy MCP support)
+    const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
+    
     const servers = await cache.get('servers', async () => {
       try {
-        const result = await executor.execute(['list', 'servers'], { registryUrl });
+        const result = await exec.execute(['list', 'servers']);
         return OutputParser.parseServers(result.stdout);
       } catch {
         return [];
@@ -61,6 +64,9 @@ export class Prompts {
     serverFilter?: string,
     registryUrl?: string
   ): Promise<string> {
+    // Create executor with registry URL if provided (legacy MCP support)
+    const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
+    
     const cacheKey = serverFilter ? `tools_${serverFilter}` : 'tools';
 
     const tools = await cache.get(cacheKey, async () => {
@@ -68,7 +74,7 @@ export class Prompts {
         const args = ['list', 'tools'];
         if (serverFilter) args.push('--server', serverFilter);
 
-        const result = await executor.execute(args, { registryUrl });
+        const result = await exec.execute(args);
         return OutputParser.parseTools(result.stdout);
       } catch {
         return [];
@@ -135,9 +141,12 @@ export class Prompts {
     message: string = 'Select tools to include',
     registryUrl?: string
   ): Promise<string[]> {
+    // Create executor with registry URL if provided (legacy MCP support)
+    const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
+    
     const tools = await cache.get('tools', async () => {
       try {
-        const result = await executor.execute(['list', 'tools'], { registryUrl });
+        const result = await exec.execute(['list', 'tools']);
         return OutputParser.parseTools(result.stdout);
       } catch {
         return [];
@@ -168,9 +177,12 @@ export class Prompts {
     message: string = 'Select servers to include',
     registryUrl?: string
   ): Promise<string[]> {
+    // Create executor with registry URL if provided (legacy MCP support)
+    const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
+    
     const servers = await cache.get('servers', async () => {
       try {
-        const result = await executor.execute(['list', 'servers'], { registryUrl });
+        const result = await exec.execute(['list', 'servers']);
         return OutputParser.parseServers(result.stdout);
       } catch {
         return [];
@@ -250,9 +262,12 @@ export class Prompts {
     message: string = 'Select a tool group',
     registryUrl?: string
   ): Promise<string> {
+    // Create executor with registry URL if provided (legacy MCP support)
+    const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
+    
     const groups = await cache.get('groups', async () => {
       try {
-        const result = await executor.execute(['list', 'groups'], { registryUrl });
+        const result = await exec.execute(['list', 'groups']);
         return OutputParser.parseGroups(result.stdout);
       } catch {
         return [];
@@ -290,6 +305,9 @@ export class Prompts {
     serverFilter?: string,
     registryUrl?: string
   ): Promise<string> {
+    // Create executor with registry URL if provided (legacy MCP support)
+    const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
+    
     const cacheKey = serverFilter ? `prompts_${serverFilter}` : 'prompts';
 
     const prompts = await cache.get(cacheKey, async () => {
@@ -297,7 +315,7 @@ export class Prompts {
         const args = ['list', 'prompts'];
         if (serverFilter) args.push('--server', serverFilter);
 
-        const result = await executor.execute(args, { registryUrl });
+        const result = await exec.execute(args);
         return OutputParser.parsePrompts(result.stdout);
       } catch {
         return [];

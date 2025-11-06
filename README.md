@@ -1,41 +1,46 @@
-# 🌴 JungleCTL
+# 🧗 climb
 
-**Interactive Terminal UI for MCPJungle**
+**Climb — ascend the arg tree**
 
-Stop memorizing flags, crafting JSON configs, and typing long canonical names. JungleCTL gives you a beautiful, fast, keyboard-driven interface to MCPJungle with autocomplete search, dynamic forms, and smart caching.
+Universal self-adapting TUI for ANY CLI. Stop memorizing commands and flags. climb gives you a beautiful, interactive interface for git, docker, npm, kubectl, and any CLI tool—with autocomplete search, dynamic forms, and command discovery.
 
 ---
 
-## 🎯 Why JungleCTL?
+## 🎯 Why climb?
 
-### Before (MCPJungle CLI)
+### Universal CLI Explorer
+
+climb adapts to ANY command-line tool—no configuration needed:
+
 ```bash
-# Register a server (manual JSON crafting)
-cat > /tmp/server-config.json << EOF
-{
-  "name": "my-server",
-  "transport": "streamable_http",
-  "url": "http://localhost:8080",
-  "description": "My HTTP server"
-}
-EOF
-mcpjungle register server -c /tmp/server-config.json
-
-# Invoke a tool (remember flags, type long names)
-echo '{"query": "Hello"}' | mcpjungle invoke tool my-server__search-tool --timeout 60
-
-# List tools (parse tables manually)
-mcpjungle list tools --server my-server
+climb
+# → Select CLI: git, docker, npm, kubectl, mcpjungle, etc.
+# → Explore commands interactively
+# → View command history
+# → Get help without leaving the TUI
 ```
 
-### After (JungleCTL)
+### Before (Manual CLI)
 ```bash
-junglectl
-# → Interactive menu
-# → Autocomplete search
-# → Dynamic forms with validation
-# → Beautiful tables with colors
-# → All in one place
+# Remember git commands and flags
+git commit --amend --no-edit --reuse-message=HEAD
+git rebase --interactive --autosquash origin/main
+
+# Docker with long commands
+docker run --rm -it -v $(pwd):/app -w /app node:18 npm test
+
+# kubectl complexity
+kubectl get pods --all-namespaces --field-selector status.phase=Running
+```
+
+### After (climb)
+```bash
+climb
+# → Switch to git/docker/kubectl
+# → Browse commands with confidence scores
+# → Interactive argument input
+# → Command preview before execution
+# → History tracking with re-run
 ```
 
 ---
@@ -43,126 +48,157 @@ junglectl
 ## ✨ Features
 
 ### Core Capabilities
-- 🚀 **Tool Invocation** - Dynamic forms generated from JSON Schema with validation
-- 📦 **Tool Groups** - Organize tools by project, team, or workflow
-- ⚡ **Enable/Disable** - Control tool availability with granular management
-- 🔌 **Server Registration** - Wizard for HTTP, STDIO, and SSE servers
-- 📋 **Resource Browsing** - Search servers, tools, groups, and prompts
+- 🔍 **Command Discovery** - Browse commands with confidence scores
+- 🧭 **Interactive Navigation** - Subcommand exploration with breadcrumbs
+- ⚡ **Command History** - Track, re-run, and edit past commands
+- 🎯 **Smart Help Parsing** - Extracts commands from `--help` output
+- 🔄 **CLI Switching** - Instantly switch between git, docker, npm, kubectl, etc.
 
 ### User Experience
-- 🔍 **Autocomplete Search** - Find resources instantly with fuzzy search
+- 🔍 **Autocomplete Search** - Find commands instantly with fuzzy matching
 - 🎨 **Beautiful UI** - Color-coded status, loading spinners, formatted tables
-- ⚡ **Fast** - Smart caching with TTL (sub-second cached responses)
-- ⚙️ **Configurable** - Persistent settings (registry URL, cache, timeouts, theme)
-- 🛡️ **Helpful Errors** - Detailed troubleshooting hints with step-by-step guidance
+- ⌨️ **Keyboard Navigation** - Vim-style shortcuts (j/k), ESC to go back
+- 📋 **Command Preview** - See the full command before executing
+- 🛡️ **History Tracking** - FIFO rotation with export/clear options
 
 ### Technical
 - 🌐 **Cross-Platform** - Linux, macOS, Windows support
 - 📝 **Type-Safe** - TypeScript strict mode with zero errors
-- 🎯 **Schema-Aware** - Supports all JSON Schema types (string, number, boolean, enum, array)
-- 🔧 **No MCPJungle Changes** - Pure CLI wrapper, zero coupling
+- 🚀 **Self-Adapting** - Works with ANY CLI tool automatically
+- 💾 **Config Migration** - Seamless v1.0 → v2.0 migration (~/.junglectl → ~/.climb)
 
 ---
 
 ## 🚀 Installation
 
-### Prerequisites
+### For End Users (No Node.js Required!)
 
-- **Node.js** 18.0.0 or higher
-- **npm** 9.0.0 or higher
-- **MCPJungle CLI** installed and accessible
-
-### Quick Install
-
-#### Option 1: Run with npx (Recommended - No Installation Required!)
-
+**One-line install (Linux/macOS):**
 ```bash
-# Run directly from GitHub (latest version)
-npx github:ain3sh/junglectl
-
-# Run from npm (once published)
-npx junglectl
+curl -fsSL https://raw.githubusercontent.com/ain3sh/climb/main/scripts/install.sh | bash
 ```
 
-#### Option 2: Global Installation
+**Manual download:**
+Download the appropriate binary from [GitHub Releases](https://github.com/ain3sh/climb/releases):
+- **Linux x64**: `climb-linux-x64`
+- **macOS Intel**: `climb-darwin-x64`
+- **macOS Apple Silicon**: `climb-darwin-arm64`
+- **Windows**: `climb-win32-x64.exe`
 
+Then run:
+```bash
+chmod +x climb-linux-x64      # Make executable (Linux/macOS)
+./climb-linux-x64              # Run
+```
+
+### For Contributors & Developers (npm)
+
+**Prerequisites:**
+- Node.js 18.0.0 or higher
+- npm 9.0.0 or higher
+
+**Global installation:**
 ```bash
 # From npm (once published)
-npm install -g junglectl
+npm install -g climb-cli
 
-# From GitHub
-npm install -g github:ain3sh/junglectl
+# Run directly with npx
+npx climb-cli
+```
 
-# From tarball (local testing)
-npm install -g ./junglectl-1.0.0.tgz
+**Local development:**
+```bash
+git clone https://github.com/ain3sh/climb
+cd climb
+npm install
+npm run build
+npm start
 ```
 
 ### Verify Installation
 
 ```bash
-# If installed globally
-junglectl --version
-jctl --version  # Short alias also available
-
-# With npx
-npx junglectl --version
-```
-
-### First Run
-
-```bash
-# With npx (no installation needed)
-npx github:ain3sh/junglectl
-
-# Or if installed globally
-junglectl
+climb --version
+# or
+climb
 ```
 
 On first run:
-- Creates config at `~/.junglectl/config.json`
-- Shows welcome message
+- Creates config at `~/.climb/config.json`
+- Shows CLI selector (git, docker, npm, etc.)
 - Uses default settings
+
+### Building SEA Binaries (Optional for Contributors)
+
+**Build for current platform only (fast):**
+```bash
+npm run build:sea:current
+./dist/binaries/climb-linux-x64  # Test the binary
+```
+
+**Build for all platforms (requires GitHub Actions):**
+```bash
+# Tag and push to trigger GitHub Actions
+git tag v2.0.1
+git push --tags
+
+# GitHub Actions automatically:
+# 1. Builds binaries for Linux, macOS (x64 + arm64), Windows
+# 2. Creates GitHub Release
+# 3. Uploads all binaries
+```
+
+**What gets built:**
+- `climb-linux-x64` (~45MB)
+- `climb-darwin-x64` (~45MB)
+- `climb-darwin-arm64` (~45MB)
+- `climb-win32-x64.exe` (~45MB)
 
 ---
 
 ## 📖 Quick Start Guide
 
-### 1. Start MCPJungle Server
+### 1. Launch climb
 
 ```bash
-mcpjungle start
-# or: docker compose up -d
+climb
 ```
 
-### 2. Launch JungleCTL
+### 2. Select or Switch CLI
 
-```bash
-junglectl
-```
+First run shows CLI selector:
+- git
+- docker
+- npm
+- kubectl
+- mcpjungle (MCP server support)
+- ...and more
 
-### 3. Register Your First Server
+Or use **"Switch CLI"** from settings.
 
-From the main menu:
-1. Select **"Register New Server"**
-2. Choose transport type (HTTP/STDIO/SSE)
-3. Fill in details (guided wizard)
-4. Confirm and create
-
-### 4. Invoke a Tool
+### 3. Explore Commands
 
 From the main menu:
-1. Select **"Invoke Tool"**
-2. Search/select tool (autocomplete)
-3. Fill in parameters (dynamic form with validation)
-4. Review and execute
-5. See formatted results
+1. Select **"Explore"** - Browse available commands
+2. View commands ranked by confidence
+3. Navigate subcommands interactively
+4. Fill in arguments with guided prompts
+5. Preview and execute
 
-### 5. Explore More
+### 4. View History
 
-- **Browse Tools** - See all available tools with status
-- **Manage Groups** - Create tool collections
-- **Enable/Disable** - Control tool availability
-- **Settings** - Customize registry URL, cache, theme
+From the main menu:
+1. Select **"History"** - View past commands
+2. See exit codes, duration, timestamps
+3. Re-run commands with one keystroke
+4. Edit and modify before re-running
+5. Clear history or export to JSON
+
+### 5. Customize
+
+- **Switch CLI** - Change target CLI tool
+- **Settings** - Configure cache, history size (mcpjungle: registry URL)
+- **ESC Navigation** - Always go back, never exit accidentally
 
 ---
 
@@ -170,70 +206,72 @@ From the main menu:
 
 ### Main Menu
 ```
-┌─────────────────────────────────────────────┐
-│  🌴 JungleCTL v1.0.0                       │
-│  MCPJungle Server: http://127.0.0.1:8080   │
-│  Status: ✅ Connected | 5 servers, 23 tools │
-└─────────────────────────────────────────────┘
+  🧗 climb v2.0.0
+
+  Exploring: git
+  CLI: git | Version: 2.43.0 ✅
 
 ? What would you like to do?
-  ❯ 📋 Browse Tools
-    🔧 Invoke Tool
-    ➕ Register MCP Server
-    📦 Manage Tool Groups
-    🔌 Manage Servers
-    🎯 Enable/Disable Tools
+  ❯ 🔍 Explore git Commands
+    📜 View Command History
+    🔄 Switch CLI
     ⚙️  Settings
     ❌ Exit
 ```
 
-### Example: Tool Invocation
+### Example: Command Exploration (git)
 
 ```
-📝 Fill in tool parameters:
+? Select a command to explore:
+  commit (0.95) - Record changes to the repository
+  ❯ push (0.90) - Update remote refs along with objects
+  pull (0.90) - Fetch and merge from remote
+  branch (0.85) - List, create, or delete branches
+  checkout (0.85) - Switch branches or restore files
+  merge (0.80) - Join development histories
+  rebase (0.80) - Reapply commits on another base
+  ...
 
-✓ query * - Search query text (string): user research
-✓ limit - Maximum number of results (number): 10
-✓ includeArchived - Include archived items (boolean): Yes
+→ Selected: git push
 
-📦 Input Parameters:
-{
-  "query": "user research",
-  "limit": 10,
-  "includeArchived": true
-}
+? Enter arguments for: git push
+  remote (optional): origin
+  branch (optional): main
+  --force? No
+  --tags? Yes
 
-✓ Execute this tool? … yes
+Preview: git push origin main --tags
 
-🚀 Executing Tool
+✓ Execute? Yes
 
-✨ Result:
-
-Found 3 results:
-1. User Research Plan Q4
-2. Customer Interview Notes
-3. Usability Testing Report
+🚀 Executing: git push origin main --tags
+[Output shown here...]
+✅ Command completed (exit code: 0, 1.2s)
 ```
 
 ---
 
 ## ⚙️ Configuration
 
-**Location**: `~/.junglectl/config.json`
+**Location**: `~/.climb/config.json`
 
 **Customizable Settings**:
-- **Registry URL** - MCPJungle server endpoint
-- **Cache TTLs** - How long to cache servers, tools, groups, schemas
-- **Timeouts** - Default and tool invocation timeouts
-- **Theme** - Primary color and color enable/disable
+- **Target CLI** - Currently selected CLI tool (git, docker, npm, kubectl, etc.)
+- **CLI Path** - Custom path to CLI executable
+- **Default Args** - Arguments to pass to every command
+- **History** - Enable/disable, max size (default: 100 commands)
+- **Registry URL** - (mcpjungle only) MCP server endpoint
+- **Cache TTLs** - (mcpjungle only) Cache durations
 
 Edit from Settings menu or manually edit config file.
+
+**Auto-Migration**: v1.0 configs (~/.junglectl) automatically migrate to v2.0 (~/.climb)
 
 ---
 
 ## ⌨️ Keyboard Shortcuts
 
-JungleCTL supports intuitive keyboard navigation:
+climb supports intuitive keyboard navigation:
 
 **Navigation:**
 - `↑↓` or `j/k` - Navigate through options
@@ -265,12 +303,11 @@ JungleCTL supports intuitive keyboard navigation:
 
 ## 📚 Documentation
 
-- **[Installation Guide](./INSTALLATION.md)** - Complete setup instructions
-- **[Usage Guide](./USAGE.md)** - Detailed feature documentation
-- **[NPX Usage Guide](./NPX_USAGE.md)** - Run without installation using npx
-- **[GitHub Setup Guide](./GITHUB_SETUP.md)** - For repository maintainers
-- **[Changelog](./CHANGELOG.md)** - Version history and changes
-- **[MCPJungle Docs](./docs/MCPJUNGLE_README.md)** - MCPJungle CLI reference
+- **[CHANGELOG.md](./CHANGELOG.md)** - Version history and changes
+- **[WEEK4_SEA_COMPLETE.md](./WEEK4_SEA_COMPLETE.md)** - SEA build pipeline implementation
+- **[SEA_MIGRATION_COMPLETE.md](./SEA_MIGRATION_COMPLETE.md)** - node-pty → child_process migration
+- **[QOL_IMPROVEMENTS.md](./QOL_IMPROVEMENTS.md)** - Keyboard navigation enhancements
+- **[docs/](./docs/)** - Architecture and phase completion documentation
 
 ---
 
@@ -279,8 +316,8 @@ JungleCTL supports intuitive keyboard navigation:
 ### Development Setup
 
 ```bash
-git clone https://github.com/username/junglectl.git
-cd junglectl
+git clone https://github.com/ain3sh/climb.git
+cd climb
 npm install
 npm run dev  # Run in development mode
 ```
@@ -288,89 +325,108 @@ npm run dev  # Run in development mode
 ### Commands
 
 ```bash
-npm run dev         # Development mode with tsx
-npm run build       # Build TypeScript → JavaScript
-npm start           # Run built version
-npm run watch       # Watch mode (rebuild on changes)
-npm run type-check  # Type checking only
-npm run clean       # Remove build artifacts
-npm run pack-test   # Create tarball and inspect
+npm run dev                # Development mode with tsx
+npm run build              # Build TypeScript → JavaScript
+npm run build:sea:current  # Build SEA binary (current platform)
+npm run build:sea          # Build SEA binaries (all platforms, CI only)
+npm start                  # Run built version
+npm run watch              # Watch mode (rebuild on changes)
+npm run type-check         # Type checking only
+npm run clean              # Remove build artifacts
 ```
 
 ### Architecture
 
-- **`src/core/`** - Core systems (executor, parser, cache, config)
-- **`src/commands/`** - Feature implementations (invoke, register, groups, etc.)
-- **`src/ui/`** - UI components (prompts, formatters, form builder, spinners)
-- **`src/types/`** - TypeScript type definitions
-- **`src/utils/`** - Error handling utilities
+- **`src/core/`** - Core systems (executor, help parser, cache, config, introspection)
+- **`src/commands/`** - Feature implementations (explore, history, switch-cli, invoke, etc.)
+- **`src/ui/`** - UI components (prompts, formatters, tables, spinners)
+- **`src/types/`** - TypeScript type definitions (config, CLI entities)
+- **`scripts/`** - Build scripts (SEA, install)
 
 ### Tech Stack
 
-- **TypeScript** - Type-safe development (strict mode)
-- **node-pty** - PTY-based command execution (cross-platform)
+- **TypeScript** - Type-safe development (strict mode, zero errors)
+- **child_process** - Command execution (SEA-compatible, no native modules)
 - **@inquirer/prompts** - Interactive CLI prompts
 - **chalk** - Terminal colors
 - **cli-table3** - Beautiful tables
 - **ora** - Loading spinners
+- **esbuild** - Fast JavaScript bundler (SEA builds)
+- **postject** - SEA blob injection tool
 
 ---
 
 ## 🐛 Troubleshooting
 
-### Command Not Found
+### Binary Not in PATH (SEA install)
 ```bash
-# Check npm global bin is in PATH
-echo $PATH | grep npm
-
-# Add if missing (bash)
-export PATH="$(npm config get prefix)/bin:$PATH"
+# Add ~/.climb/bin to PATH
+echo 'export PATH="$HOME/.climb/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc  # or ~/.zshrc
 ```
 
-### MCPJungle Not Found
+### CLI Tool Not Found
 ```bash
-# Verify MCPJungle is installed
-which mcpjungle
-mcpjungle --version
+# climb checks if target CLI exists
+# Install missing CLI tools:
 
-# Install if missing (macOS)
-brew install mcpjungle/mcpjungle/mcpjungle
+# git
+sudo apt install git         # Ubuntu/Debian
+brew install git             # macOS
+
+# docker
+sudo apt install docker.io   # Ubuntu/Debian
+brew install docker          # macOS
+
+# kubectl
+sudo apt install kubectl     # Ubuntu/Debian
+brew install kubectl         # macOS
 ```
 
 ### Config Errors
 ```bash
-# Reset configuration to defaults
-junglectl
-# → Settings → Reset to Defaults
+# View current config
+cat ~/.climb/config.json
 
-# Or manually delete
-rm ~/.junglectl/config.json
+# Reset to defaults (delete and restart)
+rm -rf ~/.climb
+climb  # Creates fresh config
 ```
 
-See [Installation Guide](./INSTALLATION.md) for comprehensive troubleshooting.
+### History Issues
+```bash
+# Clear history
+climb → History → Clear History
+
+# Or manually delete
+rm ~/.climb/history.json
+```
 
 ---
 
 ## 🤝 Contributing
 
-Contributions welcome! JungleCTL is a pure CLI wrapper with zero MCPJungle source modifications.
+Contributions welcome! climb is a universal CLI explorer built with extensibility in mind.
 
 ### Ideas for Contributions
-- Additional transport types
-- More JSON Schema validators
-- Performance optimizations
+- Support for more CLI tools (add to POPULAR_CLIS in switch-cli.ts)
+- Better help parsing (improve confidence scoring)
+- Command templates/favorites
+- Plugin system for custom CLIs
 - Test coverage
 - Documentation improvements
+
+See [WEEK4_SEA_COMPLETE.md](./WEEK4_SEA_COMPLETE.md) for build pipeline details.
 
 ---
 
 ## 📊 Project Stats
 
-- **60+ features** across 4 implementation phases
+- **Universal architecture** - Works with ANY CLI tool
 - **Zero TypeScript errors** in strict mode
-- **Sub-second cached responses** with smart caching
-- **~8,000 lines of code** including documentation
-- **Cross-platform** Linux, macOS, Windows support
+- **SEA binaries** - No Node.js required for end users
+- **~3,000 lines of code** (core + universal features)
+- **Cross-platform** - Linux, macOS (x64 + arm64), Windows support
 
 ---
 
@@ -382,20 +438,25 @@ MIT License - See [LICENSE](./LICENSE) file for details
 
 ## 🙏 Acknowledgments
 
-Built with ❤️ for the MCPJungle community
+Built with ❤️ for CLI enthusiasts everywhere
 
-- MCPJungle CLI - The foundation this builds upon
-- All the amazing open-source libraries used
+Special thanks to:
+- The Node.js team for SEA support
+- @inquirer/prompts for beautiful CLI interactions
+- chalk, ora, cli-table3 for terminal aesthetics
+- esbuild for lightning-fast bundling
 
 ---
 
-**Ready to tame the jungle?** 🌴
+**Ready to climb?** 🧗
+
+**Climb — ascend the arg tree**
 
 ```bash
-# Quick start with npx (no installation required!)
-npx github:ain3sh/junglectl
+# End users (no Node.js required)
+curl -fsSL https://raw.githubusercontent.com/ain3sh/climb/main/scripts/install.sh | bash
 
-# Or install globally
-npm install -g junglectl
-junglectl
+# Developers
+npm install -g climb-cli
+climb
 ```

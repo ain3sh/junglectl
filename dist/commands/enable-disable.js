@@ -67,10 +67,11 @@ export async function disableToolInteractive(registryUrl) {
         console.log(chalk.yellow('\n✗ Operation cancelled'));
         return;
     }
+    const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
     const spinner = new Spinner();
     spinner.start('Disabling tool...');
     try {
-        await executor.execute(['disable', 'tool', tool], { registryUrl });
+        await exec.execute(['disable', 'tool', tool]);
         cache.invalidate('tools');
         spinner.succeed(`Tool "${tool}" disabled`);
     }
@@ -82,10 +83,11 @@ export async function disableToolInteractive(registryUrl) {
 export async function enableToolInteractive(registryUrl) {
     console.log(Formatters.header('Enable Tool'));
     const tool = await Prompts.selectTool('Select tool to enable', undefined, registryUrl);
+    const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
     const spinner = new Spinner();
     spinner.start('Enabling tool...');
     try {
-        await executor.execute(['enable', 'tool', tool], { registryUrl });
+        await exec.execute(['enable', 'tool', tool]);
         cache.invalidate('tools');
         spinner.succeed(`Tool "${tool}" enabled`);
     }
@@ -104,10 +106,11 @@ export async function disableServerInteractive(registryUrl) {
         console.log(chalk.yellow('\n✗ Operation cancelled'));
         return;
     }
+    const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
     const spinner = new Spinner();
     spinner.start('Disabling server...');
     try {
-        await executor.execute(['disable', 'server', server], { registryUrl });
+        await exec.execute(['disable', 'server', server]);
         cache.invalidate();
         spinner.succeed(`Server "${server}" disabled`);
         console.log(chalk.gray('\nAll tools from this server are now disabled.\n'));
@@ -120,10 +123,11 @@ export async function disableServerInteractive(registryUrl) {
 export async function enableServerInteractive(registryUrl) {
     console.log(Formatters.header('Enable Server'));
     const server = await Prompts.selectServer('Select server to enable', registryUrl);
+    const exec = registryUrl ? new MCPJungleExecutor(registryUrl) : executor;
     const spinner = new Spinner();
     spinner.start('Enabling server...');
     try {
-        await executor.execute(['enable', 'server', server], { registryUrl });
+        await exec.execute(['enable', 'server', server]);
         cache.invalidate();
         spinner.succeed(`Server "${server}" enabled`);
         console.log(chalk.gray('\nAll tools from this server are now enabled.\n'));

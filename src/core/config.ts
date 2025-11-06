@@ -7,12 +7,20 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import type { AppConfig } from '../types/config.js';
-import { DEFAULT_CONFIG } from '../types/config.js';
+import { DEFAULT_CONFIG, isLegacyConfig, migrateLegacyConfig } from '../types/config.js';
 
 /**
  * Get the configuration directory path
+ * Renamed from .junglectl to .climb for v2.0
  */
 export function getConfigDir(): string {
+  return path.join(os.homedir(), '.climb');
+}
+
+/**
+ * Get legacy configuration directory path (for migration)
+ */
+function getLegacyConfigDir(): string {
   return path.join(os.homedir(), '.junglectl');
 }
 
@@ -40,23 +48,55 @@ export async function ensureConfigDir(): Promise<void> {
 /**
  * Load configuration from file
  * Returns defaults if file doesn't exist
+ * Handles migration from legacy junglectl config
  */
 export async function loadConfig(): Promise<AppConfig> {
   try {
     await ensureConfigDir();
     const configPath = getConfigFilePath();
     
-    // Check if file exists
+    // Check if new config exists
+    let configExists = false;
     try {
       await fs.access(configPath);
+      configExists = true;
     } catch {
-      // File doesn't exist - first run
+      // New config doesn't exist
+    }
+
+    // If new config doesn't exist, check for legacy config
+    if (!configExists) {
+      const legacyPath = path.join(getLegacyConfigDir(), 'config.json');
+      try {
+        await fs.access(legacyPath);
+        // Legacy config exists - migrate it
+        const legacyData = await fs.readFile(legacyPath, 'utf-8');
+        const legacyConfig = JSON.parse(legacyData);
+        
+        if (isLegacyConfig(legacyConfig)) {
+          const migratedConfig = migrateLegacyConfig(legacyConfig);
+          // Save migrated config
+          await saveConfig(migratedConfig);
+          return migratedConfig;
+        }
+      } catch {
+        // Legacy config doesn't exist or couldn't be read
+      }
+      
+      // No config exists - first run
       return DEFAULT_CONFIG;
     }
 
     // Read and parse config
     const data = await fs.readFile(configPath, 'utf-8');
     const userConfig = JSON.parse(data);
+
+    // Check if it's a legacy config in new location (shouldn't happen but handle it)
+    if (isLegacyConfig(userConfig)) {
+      const migratedConfig = migrateLegacyConfig(userConfig);
+      await saveConfig(migratedConfig);
+      return migratedConfig;
+    }
 
     // Validate and merge with defaults
     return mergeConfig(DEFAULT_CONFIG, userConfig);
@@ -103,23 +143,32 @@ export async function saveConfig(config: AppConfig): Promise<void> {
 export function validateConfig(config: Partial<AppConfig>): AppConfig {
   const errors: string[] = [];
 
-  // Validate registry URL
-  if (config.registryUrl) {
-    try {
-      const url = new URL(config.registryUrl);
-      if (!['http:', 'https:'].includes(url.protocol)) {
-        errors.push('Registry URL must use http:// or https:// protocol');
+  // Validate targetCLI
+  if (config.targetCLI) {
+    if (typeof config.targetCLI !== 'string' || config.targetCLI.trim().length === 0) {
+      errors.push('Target CLI must be a non-empty string');
+    }
+  }
+
+  // Validate defaultArgs
+  if (config.defaultArgs) {
+    if (!Array.isArray(config.defaultArgs)) {
+      errors.push('Default args must be an array');
+    } else {
+      for (const arg of config.defaultArgs) {
+        if (typeof arg !== 'string') {
+          errors.push('All default args must be strings');
+          break;
+        }
       }
-    } catch {
-      errors.push('Invalid registry URL format');
     }
   }
 
   // Validate cache TTLs
   if (config.cacheTTL) {
     for (const [key, value] of Object.entries(config.cacheTTL)) {
-      if (typeof value !== 'number' || value < 1000 || value > 300000) {
-        errors.push(`Cache TTL for ${key} must be between 1 and 300 seconds (1000-300000ms)`);
+      if (typeof value !== 'number' || value < 1000 || value > 600000) {
+        errors.push(`Cache TTL for ${key} must be between 1 and 600 seconds (1000-600000ms)`);
       }
     }
   }
@@ -131,9 +180,23 @@ export function validateConfig(config: Partial<AppConfig>): AppConfig {
         errors.push('Default timeout must be between 1 and 300 seconds');
       }
     }
-    if (config.timeout.invoke) {
-      if (config.timeout.invoke < 1000 || config.timeout.invoke > 300000) {
-        errors.push('Invoke timeout must be between 1 and 300 seconds');
+    if (config.timeout.introspection) {
+      if (config.timeout.introspection < 1000 || config.timeout.introspection > 60000) {
+        errors.push('Introspection timeout must be between 1 and 60 seconds');
+      }
+    }
+    if (config.timeout.execute) {
+      if (config.timeout.execute < 1000 || config.timeout.execute > 300000) {
+        errors.push('Execute timeout must be between 1 and 300 seconds');
+      }
+    }
+  }
+
+  // Validate execution settings
+  if (config.execution) {
+    if (config.execution.maxHistorySize !== undefined) {
+      if (typeof config.execution.maxHistorySize !== 'number' || config.execution.maxHistorySize < 0 || config.execution.maxHistorySize > 1000) {
+        errors.push('Max history size must be between 0 and 1000');
       }
     }
   }
@@ -161,7 +224,9 @@ export function validateConfig(config: Partial<AppConfig>): AppConfig {
 function mergeConfig(defaults: AppConfig, user: Partial<AppConfig>): AppConfig {
   return {
     version: user.version || defaults.version,
-    registryUrl: user.registryUrl || defaults.registryUrl,
+    targetCLI: user.targetCLI || defaults.targetCLI,
+    cliPath: user.cliPath,
+    defaultArgs: user.defaultArgs || defaults.defaultArgs,
     cacheTTL: {
       ...defaults.cacheTTL,
       ...(user.cacheTTL || {}),
@@ -174,10 +239,11 @@ function mergeConfig(defaults: AppConfig, user: Partial<AppConfig>): AppConfig {
       ...defaults.timeout,
       ...(user.timeout || {}),
     },
-    experimental: {
-      ...defaults.experimental,
-      ...(user.experimental || {}),
+    execution: {
+      ...defaults.execution,
+      ...(user.execution || {}),
     },
+    registryUrl: user.registryUrl,  // Legacy field (optional)
   };
 }
 

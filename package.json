@@ -1,56 +1,55 @@
 {
-  "name": "junglectl",
-  "version": "1.0.0",
-  "description": "Interactive terminal UI for MCPJungle - eliminates flag memorization and manual JSON crafting",
+  "name": "climb-cli",
+  "version": "2.0.0",
+  "description": "Climb — ascend the arg tree. Universal self-adapting TUI for ANY CLI - git, docker, npm, kubectl, and more",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
-    "junglectl": "./dist/index.js",
-    "jctl": "./dist/index.js"
+    "climb": "./dist/index.js"
   },
   "files": [
     "dist/",
-    "docs/",
     "README.md",
     "LICENSE",
-    "CHANGELOG.md",
-    "USAGE.md",
-    "INSTALLATION.md",
-    "NPX_USAGE.md"
+    "CHANGELOG.md"
   ],
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc",
+    "build:sea": "node scripts/build-sea.cjs",
+    "build:sea:current": "node scripts/build-sea.cjs --current-only",
     "start": "node dist/index.js",
     "watch": "tsc --watch",
     "clean": "rm -rf dist",
     "type-check": "tsc --noEmit",
     "prepublishOnly": "npm run type-check && npm run build",
-    "pack-test": "npm pack && tar -tzf junglectl-1.0.0.tgz | head -30"
+    "pack-test": "npm pack && tar -tzf climb-cli-2.0.0.tgz | head -30"
   },
   "keywords": [
-    "mcp",
-    "mcpjungle",
     "cli",
+    "tui",
     "interactive",
     "terminal",
-    "tui",
-    "tool-invocation",
+    "git",
+    "docker",
+    "kubectl",
+    "universal-cli",
+    "cli-explorer",
+    "command-discovery",
     "developer-tools",
-    "mcp-client",
-    "schema",
-    "autocomplete"
+    "introspection",
+    "self-adapting"
   ],
   "author": "Ainesh",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ain3sh/junglectl.git"
+    "url": "git+https://github.com/ain3sh/climb.git"
   },
   "bugs": {
-    "url": "https://github.com/ain3sh/junglectl/issues"
+    "url": "https://github.com/ain3sh/climb/issues"
   },
-  "homepage": "https://github.com/ain3sh/junglectl#readme",
+  "homepage": "https://github.com/ain3sh/climb#readme",
   "publishConfig": {
     "access": "public"
   },
@@ -63,12 +62,13 @@
     "chalk": "^5.4.1",
     "cli-table3": "^0.6.5",
     "commander": "^12.1.0",
-    "node-pty": "^1.1.0-beta22",
     "ora": "^8.2.0",
     "strip-ansi": "^7.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.17.1",
+    "esbuild": "^0.20.0",
+    "postject": "^1.0.0-alpha.6",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   }

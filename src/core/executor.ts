@@ -1,9 +1,9 @@
 /**
- * MCPJungle Command Executor
- * Executes mcpjungle CLI commands via node-pty
+ * Universal CLI Command Executor
+ * Executes any CLI command via child_process (SEA-compatible)
  */
 
-import pty, { IPty } from 'node-pty';
+import { spawn, spawnSync, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 
 export interface ExecutorOptions {
@@ -11,7 +11,7 @@ export interface ExecutorOptions {
   encoding?: string;
   env?: Record<string, string>;
   cwd?: string;
-  registryUrl?: string;
+  acceptOutputOnError?: boolean;
 }
 
 export interface ExecutorResult {
@@ -21,19 +21,24 @@ export interface ExecutorResult {
   duration: number;
 }
 
-export class MCPJungleExecutor extends EventEmitter {
-  private ptyProcess: IPty | null = null;
-  private defaultRegistryUrl: string = 'http://127.0.0.1:8080';
+export class UniversalCLIExecutor extends EventEmitter {
+  private childProcess: ChildProcess | null = null;
+  private commandName: string;
+  private defaultArgs: string[];
 
-  constructor(registryUrl?: string) {
+  /**
+   * Create executor for a specific CLI command
+   * @param commandName - Name of the CLI command (e.g., 'git', 'docker', 'npm')
+   * @param defaultArgs - Arguments to prepend to every execution (e.g., ['--no-pager'] for git)
+   */
+  constructor(commandName: string, defaultArgs: string[] = []) {
     super();
-    if (registryUrl) {
-      this.defaultRegistryUrl = registryUrl;
-    }
+    this.commandName = commandName;
+    this.defaultArgs = defaultArgs;
   }
 
   /**
-   * Execute a mcpjungle command
+   * Execute a command with the configured CLI
    */
   async execute(
     args: string[],
@@ -43,41 +48,42 @@ export class MCPJungleExecutor extends EventEmitter {
     let stdout = '';
     let stderr = '';
 
-    // Add registry URL if specified and not already in args
-    const finalArgs = [...args];
-    const registryUrl = options.registryUrl || this.defaultRegistryUrl;
-    
-    if (!finalArgs.includes('--registry') && registryUrl !== 'http://127.0.0.1:8080') {
-      finalArgs.push('--registry', registryUrl);
-    }
+    // Prepend default args (if any)
+    const finalArgs = [...this.defaultArgs, ...args];
 
     return new Promise((resolve, reject) => {
       let timeoutId: NodeJS.Timeout | null = null;
       
       try {
-        // FIXED: Spawn mcpjungle directly, not through a shell!
-        // This way the process exits when the command completes
-        this.ptyProcess = pty.spawn('mcpjungle', finalArgs, {
-          name: 'xterm-color',
-          cols: 120,
-          rows: 30,
+        // Spawn the CLI command via child_process (SEA-compatible)
+        this.childProcess = spawn(this.commandName, finalArgs, {
           cwd: options.cwd || process.cwd(),
           env: {
             ...process.env,
             ...options.env,
-            FORCE_COLOR: '1', // Preserve ANSI colors
-          } as Record<string, string>,
-          encoding: (options.encoding || 'utf8') as BufferEncoding,
+            FORCE_COLOR: '3',           // Force truecolor output
+            COLORTERM: 'truecolor',     // Enable truecolor support
+            TERM: 'xterm-256color',     // 256-color terminal
+          },
+          stdio: ['ignore', 'pipe', 'pipe'], // stdin ignored, stdout/stderr piped
         });
 
-        // Capture output
-        this.ptyProcess.onData((data: string) => {
-          stdout += data;
-          this.emit('data', data);
+        // Capture stdout
+        this.childProcess.stdout?.on('data', (data: Buffer) => {
+          const encoding = (options.encoding || 'utf8') as BufferEncoding;
+          const text = data.toString(encoding);
+          stdout += text;
+          this.emit('data', text);
+        });
+
+        // Capture stderr
+        this.childProcess.stderr?.on('data', (data: Buffer) => {
+          const encoding = (options.encoding || 'utf8') as BufferEncoding;
+          stderr += data.toString(encoding);
         });
 
         // Handle exit
-        this.ptyProcess.onExit(({ exitCode, signal }) => {
+        this.childProcess.on('exit', (exitCode, signal) => {
           const duration = Date.now() - startTime;
           
           // Clear timeout on exit
@@ -86,15 +92,18 @@ export class MCPJungleExecutor extends EventEmitter {
             timeoutId = null;
           }
           
-          this.ptyProcess = null;
+          this.childProcess = null;
 
-          // Clean ANSI codes but keep the output intact (no shell prompts to remove)
+          // Clean output (keep ANSI codes, just trim whitespace)
           const cleanStdout = stdout.trim();
 
-          if (exitCode === 0) {
+          const successfulExit = exitCode === 0;
+          const allowOutputOnError = options.acceptOutputOnError && cleanStdout.length > 0;
+
+          if (successfulExit || allowOutputOnError) {
             resolve({
               stdout: cleanStdout,
-              stderr,
+              stderr: stderr.trim(),
               exitCode: exitCode || 0,
               duration,
             });
@@ -107,12 +116,22 @@ export class MCPJungleExecutor extends EventEmitter {
           }
         });
 
+        // Handle process errors
+        this.childProcess.on('error', (error) => {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          this.childProcess = null;
+          reject(error);
+        });
+
         // Timeout handling
         const timeout = options.timeout || 30000; // 30s default
         timeoutId = setTimeout(() => {
-          if (this.ptyProcess) {
-            this.ptyProcess.kill();
-            this.ptyProcess = null;
+          if (this.childProcess) {
+            this.childProcess.kill();
+            this.childProcess = null;
             reject(new Error(`Command timeout exceeded (${timeout}ms)`));
           }
         }, timeout);
@@ -132,38 +151,96 @@ export class MCPJungleExecutor extends EventEmitter {
    * Kill the current process
    */
   kill(): void {
-    if (this.ptyProcess) {
-      this.ptyProcess.kill();
-      this.ptyProcess = null;
+    if (this.childProcess) {
+      this.childProcess.kill();
+      this.childProcess = null;
     }
   }
 
   /**
-   * Check if mcpjungle CLI is available
+   * Check if a CLI command is available in PATH
    */
-  static async isAvailable(): Promise<boolean> {
+  static isAvailable(commandName: string): boolean {
     try {
-      const executor = new MCPJungleExecutor();
-      await executor.execute(['version'], { timeout: 5000 });
-      return true;
+      const result = spawnSync('which', [commandName], {
+        encoding: 'utf8',
+        timeout: 3000,
+      });
+      return result.status === 0 && result.stdout.trim().length > 0;
     } catch {
       return false;
     }
   }
 
   /**
-   * Get mcpjungle version
+   * Get CLI version (tries common version flags)
    */
-  static async getVersion(): Promise<string | null> {
-    try {
-      const executor = new MCPJungleExecutor();
-      const result = await executor.execute(['version'], { timeout: 5000 });
-      
-      // Extract version from output
-      const versionMatch = result.stdout.match(/CLI Version:\s+v?([\d.]+)/i);
-      return versionMatch ? (versionMatch[1] || null) : null;
-    } catch {
-      return null;
+  static async getVersion(commandName: string): Promise<string | null> {
+    const versionFlags = ['--version', '-v', 'version', '-V'];
+    
+    for (const flag of versionFlags) {
+      try {
+        const executor = new UniversalCLIExecutor(commandName);
+        const result = await executor.execute([flag], { 
+          timeout: 5000,
+          acceptOutputOnError: true, // Some CLIs exit with non-zero on --version
+        });
+        
+        // Extract version number from output
+        const versionMatch = result.stdout.match(/v?([\d]+\.[\d]+\.[\d]+)/i);
+        if (versionMatch?.[1]) {
+          return versionMatch[1];
+        }
+        
+        // If no semver found but we got output, return first line
+        const firstLine = result.stdout.split('\n')[0]?.trim();
+        if (firstLine && firstLine.length < 100) {
+          return firstLine;
+        }
+      } catch {
+        continue;
+      }
     }
+    
+    return null;
   }
+
+  /**
+   * Get the command name this executor is configured for
+   */
+  getCommandName(): string {
+    return this.commandName;
+  }
+}
+
+/**
+ * Legacy MCPJungleExecutor class for backwards compatibility
+ * Wraps UniversalCLIExecutor with mcpjungle-specific defaults
+ * 
+ * Note: Static methods (isAvailable, getVersion) are inherited from parent.
+ * For async versions matching old API, use:
+ *   await Promise.resolve(MCPJungleExecutor.isAvailable('mcpjungle'))
+ *   await MCPJungleExecutor.getVersion('mcpjungle')
+ */
+export class MCPJungleExecutor extends UniversalCLIExecutor {
+  constructor(registryUrl?: string) {
+    // Convert old registryUrl-based constructor to new format
+    const defaultArgs = registryUrl && registryUrl !== 'http://127.0.0.1:8080'
+      ? ['--registry', registryUrl]
+      : [];
+    
+    super('mcpjungle', defaultArgs);
+  }
+}
+
+/**
+ * Legacy async wrapper functions for backwards compatibility
+ * Use these instead of static methods to get Promise-based API
+ */
+export async function isMCPJungleAvailable(): Promise<boolean> {
+  return Promise.resolve(UniversalCLIExecutor.isAvailable('mcpjungle'));
+}
+
+export async function getMCPJungleVersion(): Promise<string | null> {
+  return UniversalCLIExecutor.getVersion('mcpjungle');
 }

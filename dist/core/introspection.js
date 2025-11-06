@@ -1,8 +1,22 @@
 import { MCPJungleExecutor } from './executor.js';
+import { HelpParser } from './help-parser.js';
+const HELP_PROBES = [
+    ['--help'],
+    ['-h'],
+    ['help'],
+    ['--help', 'all'],
+    ['--help', 'full'],
+    ['--long'],
+];
+const MAX_PROBE_ATTEMPTS = 6;
+const MAX_SUBCOMMAND_DEPTH = 2;
+const MAX_SUBCOMMAND_PROBES = 14;
 export class CLIIntrospector {
     cache = null;
     CACHE_TTL = 5 * 60 * 1000;
     executor;
+    parser = new HelpParser();
+    telemetry = { subcommands: {}, probes: [] };
     constructor(registryUrl) {
         this.executor = new MCPJungleExecutor(registryUrl);
     }
@@ -10,98 +24,179 @@ export class CLIIntrospector {
         if (this.cache && Date.now() - this.cache.timestamp < this.CACHE_TTL) {
             return this.cache;
         }
-        const commands = await this.discoverCommands();
-        const subcommands = new Map();
-        for (const cmd of commands) {
-            if (this.likelyHasSubcommands(cmd.name)) {
-                try {
-                    const subs = await this.discoverSubcommands(cmd.name);
-                    if (subs.length > 0) {
-                        subcommands.set(cmd.name, subs);
-                        cmd.hasSubcommands = true;
-                    }
-                }
-                catch {
-                }
-            }
-        }
+        const { commands, subcommands, telemetry } = await this.discoverStructure();
         this.cache = {
             commands,
             subcommands,
+            telemetry,
             timestamp: Date.now(),
         };
         return this.cache;
     }
-    async discoverCommands() {
-        try {
-            const result = await this.executor.execute(['--help'], { timeout: 5000 });
-            return this.parseHelpOutput(result.stdout);
-        }
-        catch (error) {
-            return [];
-        }
+    async discoverStructure() {
+        this.telemetry = { subcommands: {}, probes: [] };
+        const rootCapture = await this.captureHelp([]);
+        const parsedRoot = this.parser.parse(rootCapture.stdout);
+        this.telemetry.root = parsedRoot.telemetry;
+        const commands = this.toCommands(parsedRoot);
+        const { subcommandMap, subTelemetry } = await this.discoverSubcommands(commands);
+        this.telemetry.subcommands = subTelemetry;
+        commands.forEach((command) => {
+            if (subcommandMap.has(command.name)) {
+                command.hasSubcommands = true;
+            }
+        });
+        return { commands, subcommands: subcommandMap, telemetry: this.telemetry };
     }
-    async discoverSubcommands(command) {
-        try {
-            const result = await this.executor.execute([command, '--help'], { timeout: 5000 });
-            return this.parseSubcommandOutput(result.stdout);
+    async captureHelp(path) {
+        const trimmedPath = path.filter(Boolean);
+        const attempts = [];
+        for (const probe of HELP_PROBES) {
+            attempts.push([...trimmedPath, ...probe]);
+            if (probe.length === 1 && probe[0] === 'help' && trimmedPath.length) {
+                attempts.push(['help', ...trimmedPath]);
+            }
+            if (probe.length === 2 && probe[0] === '--help' && trimmedPath.length) {
+                attempts.push([...trimmedPath, `${probe[0]}=${probe[1]}`]);
+            }
         }
-        catch {
-            return [];
-        }
-    }
-    parseHelpOutput(output) {
-        const commands = [];
-        const basicMatch = output.match(/Basic Commands:(.*?)(?=Advanced Commands:|Flags:|$)/s);
-        if (basicMatch && basicMatch[1]) {
-            const basicCommands = this.extractCommandsList(basicMatch[1], 'basic');
-            commands.push(...basicCommands);
-        }
-        const advancedMatch = output.match(/Advanced Commands:(.*?)(?=Flags:|$)/s);
-        if (advancedMatch && advancedMatch[1]) {
-            const advancedCommands = this.extractCommandsList(advancedMatch[1], 'advanced');
-            commands.push(...advancedCommands);
-        }
-        return commands;
-    }
-    parseSubcommandOutput(output) {
-        const subcommands = [];
-        const match = output.match(/Available Commands:(.*?)(?=Flags:|$)/s);
-        if (!match || !match[1])
-            return [];
-        const lines = match[1].trim().split('\n');
-        for (const line of lines) {
-            const cmdMatch = line.match(/^\s+(\S+)\s{2,}(.+)$/);
-            if (cmdMatch && cmdMatch[1] && cmdMatch[2]) {
-                subcommands.push({
-                    name: cmdMatch[1],
-                    description: cmdMatch[2].trim(),
+        const tried = new Set();
+        let fallback = null;
+        for (const args of attempts.slice(0, MAX_PROBE_ATTEMPTS)) {
+            const key = args.join('\u0000');
+            if (tried.has(key))
+                continue;
+            tried.add(key);
+            try {
+                const result = await this.executor.execute(args, {
+                    timeout: Math.min(8000, 5000 + trimmedPath.length * 1000),
+                    acceptOutputOnError: true,
+                });
+                const capture = {
+                    path: trimmedPath,
+                    args,
+                    stdout: result.stdout,
+                    exitCode: result.exitCode,
+                    duration: result.duration,
+                };
+                this.telemetry.probes.push({
+                    path: trimmedPath,
+                    args,
+                    exitCode: result.exitCode,
+                    duration: result.duration,
+                    success: result.stdout.trim().length > 0,
+                });
+                if (result.stdout.trim()) {
+                    return capture;
+                }
+                fallback = capture;
+            }
+            catch (error) {
+                this.telemetry.probes.push({
+                    path: trimmedPath,
+                    args,
+                    exitCode: -1,
+                    duration: 0,
+                    success: false,
                 });
             }
         }
-        return subcommands;
+        return (fallback ?? {
+            path: trimmedPath,
+            args: [...trimmedPath, '--help'],
+            stdout: '',
+            exitCode: -1,
+            duration: 0,
+        });
     }
-    extractCommandsList(text, category) {
-        const lines = text.trim().split('\n');
-        const commands = [];
-        for (const line of lines) {
-            const match = line.match(/^\s+(\S+)\s{2,}(.+)$/);
-            if (match && match[1] && match[2]) {
-                commands.push({
-                    name: match[1],
-                    description: match[2].trim(),
-                    category,
+    toCommands(parsed) {
+        const sectionOrder = Array.from(new Set(parsed.commands.map((cmd) => cmd.origin.sectionIndex))).sort((a, b) => a - b);
+        const sectionCategory = new Map();
+        sectionOrder.forEach((sectionIndex, idx) => {
+            sectionCategory.set(sectionIndex, idx === 0 ? 'basic' : 'advanced');
+        });
+        return parsed.commands
+            .filter((cmd) => cmd.confidence >= 0.35)
+            .map((cmd) => ({
+            name: cmd.name,
+            description: cmd.description,
+            category: sectionCategory.get(cmd.origin.sectionIndex) ?? 'basic',
+            confidence: cmd.confidence,
+            sectionIndex: cmd.origin.sectionIndex,
+        }))
+            .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0));
+    }
+    async discoverSubcommands(commands) {
+        const queue = [];
+        const visited = new Set();
+        const subcommandMap = new Map();
+        const telemetry = {};
+        commands.forEach((command) => {
+            if ((command.confidence ?? 0) >= 0.45) {
+                queue.push({ path: [command.name], depth: 1 });
+            }
+        });
+        let probesUsed = 0;
+        while (queue.length && probesUsed < MAX_SUBCOMMAND_PROBES) {
+            const current = queue.shift();
+            const key = current.path.join(' ');
+            if (current.depth > MAX_SUBCOMMAND_DEPTH) {
+                continue;
+            }
+            if (visited.has(key)) {
+                continue;
+            }
+            visited.add(key);
+            probesUsed += 1;
+            const capture = await this.captureHelp(current.path);
+            if (!capture.stdout.trim()) {
+                continue;
+            }
+            const parsed = this.parser.parse(capture.stdout);
+            telemetry[key] = parsed.telemetry;
+            const subcommands = this.toSubcommands(parsed, current.path);
+            if (!subcommands.length) {
+                continue;
+            }
+            const parentName = current.path[current.path.length - 1];
+            if (current.depth === 1) {
+                subcommandMap.set(parentName, subcommands);
+            }
+            if (current.depth < MAX_SUBCOMMAND_DEPTH) {
+                subcommands.forEach((sub) => {
+                    if ((sub.confidence ?? 0) >= 0.5) {
+                        queue.push({ path: [...current.path, sub.name], depth: current.depth + 1 });
+                    }
                 });
             }
         }
-        return commands;
+        return { subcommandMap, subTelemetry: telemetry };
     }
-    likelyHasSubcommands(name) {
-        const knownParents = ['list', 'get', 'create', 'delete', 'disable', 'enable', 'update'];
-        return knownParents.includes(name);
+    toSubcommands(parsed, path) {
+        const parent = path[path.length - 1];
+        const seen = new Set();
+        return parsed.commands
+            .filter((cmd) => cmd.confidence >= 0.35 && cmd.name !== parent)
+            .map((cmd) => ({
+            name: cmd.name,
+            description: cmd.description,
+            confidence: cmd.confidence,
+            path: [...path, cmd.name],
+        }))
+            .filter((sub) => {
+            const key = sub.name.toLowerCase();
+            if (seen.has(key))
+                return false;
+            seen.add(key);
+            return true;
+        })
+            .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0));
     }
     clearCache() {
         this.cache = null;
+    }
+    getTelemetry() {
+        return this.cache?.telemetry ?? this.telemetry;
     }
 }
 //# sourceMappingURL=introspection.js.map

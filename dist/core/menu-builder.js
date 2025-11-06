@@ -1,43 +1,34 @@
+import { CLIIntrospector } from './introspection.js';
 export class DynamicMenuBuilder {
     introspector;
-    constructor(introspector) {
-        this.introspector = introspector;
+    constructor(_config) {
+        this.introspector = new CLIIntrospector();
     }
     async buildMainMenu() {
         const structure = await this.introspector.getCommandStructure();
         const choices = [];
-        const priorityOrder = [
-            'list',
-            'invoke',
-            'register',
-            'create',
-            'get',
-            'enable',
-            'disable',
-            'update',
-            'delete',
-            'deregister',
-        ];
-        for (const cmdName of priorityOrder) {
-            const cmd = structure.commands.find(c => c.name === cmdName);
-            if (cmd && this.isInteractive(cmd)) {
-                choices.push(this.formatMenuItem(cmd));
+        const sortedCommands = structure.commands
+            .filter(c => this.isInteractive(c))
+            .sort((a, b) => {
+            const confA = a.confidence || 0;
+            const confB = b.confidence || 0;
+            if (confB !== confA) {
+                return confB - confA;
             }
-        }
-        for (const cmd of structure.commands) {
-            if (this.isInteractive(cmd) && !priorityOrder.includes(cmd.name)) {
-                choices.push(this.formatMenuItem(cmd));
-            }
+            return a.name.localeCompare(b.name);
+        });
+        for (const cmd of sortedCommands.slice(0, 10)) {
+            choices.push(this.formatMenuItem(cmd));
         }
         choices.push({
             value: 'settings',
             name: '⚙️  Settings',
-            description: 'Configure JungleCTL preferences',
+            description: 'Configure climb preferences',
         });
         choices.push({
             value: 'exit',
             name: '❌ Exit',
-            description: 'Quit JungleCTL',
+            description: 'Quit climb',
         });
         return choices;
     }
