@@ -91,33 +91,46 @@ echo "✅ Binary installed to: $INSTALL_DIR/$BINARY_NAME"
 echo ""
 
 # Add to PATH
-SHELL_RC=""
-if [ -n "$BASH_VERSION" ]; then
-  SHELL_RC="$HOME/.bashrc"
-elif [ -n "$ZSH_VERSION" ]; then
-  SHELL_RC="$HOME/.zshrc"
-elif [ -f "$HOME/.zshrc" ]; then
-  SHELL_RC="$HOME/.zshrc"
-elif [ -f "$HOME/.bashrc" ]; then
-  SHELL_RC="$HOME/.bashrc"
-else
-  SHELL_RC="$HOME/.profile"
-fi
-
 # Check if already in PATH
 if echo "$PATH" | grep -q ".climb/bin"; then
   echo "✅ climb is already in your PATH"
 else
-  # Add to shell config
-  if [ -f "$SHELL_RC" ]; then
+  # Update all existing shell config files
+  UPDATED=false
+
+  for SHELL_RC in "$HOME/.zshrc" "$HOME/.bashrc"; do
+    if [ -f "$SHELL_RC" ]; then
+      if ! grep -q ".climb/bin" "$SHELL_RC" 2>/dev/null; then
+        echo "" >> "$SHELL_RC"
+        echo "# climb CLI" >> "$SHELL_RC"
+        echo "export PATH=\"\$HOME/.climb/bin:\$PATH\"" >> "$SHELL_RC"
+        echo "✅ Added climb to PATH in $SHELL_RC"
+        UPDATED=true
+      fi
+    fi
+  done
+
+  # If no rc files were updated, try .profile as fallback
+  if [ "$UPDATED" = false ]; then
+    SHELL_RC="$HOME/.profile"
     if ! grep -q ".climb/bin" "$SHELL_RC" 2>/dev/null; then
       echo "" >> "$SHELL_RC"
       echo "# climb CLI" >> "$SHELL_RC"
       echo "export PATH=\"\$HOME/.climb/bin:\$PATH\"" >> "$SHELL_RC"
       echo "✅ Added climb to PATH in $SHELL_RC"
-      echo ""
-      echo "⚡ Run this to update your current shell:"
-      echo "   source $SHELL_RC"
+      UPDATED=true
+    fi
+  fi
+
+  if [ "$UPDATED" = true ]; then
+    echo ""
+    echo "⚡ Run this to update your current shell:"
+    if [ -f "$HOME/.zshrc" ]; then
+      echo "   source ~/.zshrc"
+    elif [ -f "$HOME/.bashrc" ]; then
+      echo "   source ~/.bashrc"
+    else
+      echo "   source ~/.profile"
     fi
   else
     echo "⚠️  Could not add to PATH automatically"
