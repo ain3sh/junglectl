@@ -10,8 +10,10 @@ Universal, self-adapting TUI for command-line tools. Stop memorizing flags. Expl
 
 ```bash
 # End users (no Node.js required)
+curl -fsSL https://ain3sh.com/climb/install.sh | bash
+
+# Alternative (direct from GitHub)
 curl -fsSL https://raw.githubusercontent.com/ain3sh/climb/main/scripts/install.sh | bash
-climb
 
 # Developers (Node 18+)
 npm i -g climb-cli   # when published
