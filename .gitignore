@@ -11,6 +11,7 @@ pnpm-debug.log*
 # dist/
 build/
 *.tsbuildinfo
+autom4te.cache/
 
 # SEA build artifacts (exclude from git)
 dist/bundle.js
@@ -35,12 +36,14 @@ sea-config.json
 # Testing
 coverage/
 .nyc_output/
+Testing/
 
 # Temp files
 *.log
 tmp/
 temp/
 .cache/
+gz[0-9]*
 
 # Local runtime artifacts not for source control
 mcpjungle-server.log
@@ -51,6 +54,10 @@ mcpjungle.db
 
 # OS
 Thumbs.db
+
+# System files
+fonts.dir
+fonts.scale
 
 # User config files
 myClient.json

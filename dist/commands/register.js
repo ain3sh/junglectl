@@ -7,11 +7,11 @@ import chalk from 'chalk';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { formatQuickActionsBar, formatNavigationHint } from '../ui/keyboard-handler.js';
+import { formatNavigationHint } from '../ui/keyboard-handler.js';
 const executor = new MCPJungleExecutor();
 export async function registerServerInteractive(registryUrl) {
     console.log(Formatters.header('Register New MCP Server'));
-    process.stdout.write(formatQuickActionsBar());
+    console.log();
     process.stdout.write(formatNavigationHint('navigation'));
     try {
         console.log(chalk.bold('\n📝 Basic Information\n'));

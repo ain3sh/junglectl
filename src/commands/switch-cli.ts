@@ -1,31 +1,28 @@
 /**
  * CLI Switcher
- * Switch between different CLI tools (git, docker, npm, etc.)
+ * Switch between different CLI tools using dynamic discovery
  */
 
 import { Prompts } from '../ui/prompts.js';
 import { Formatters } from '../ui/formatters.js';
+import { Spinner } from '../ui/spinners.js';
 import { UniversalCLIExecutor } from '../core/executor.js';
+import { discoverCLIs, type DiscoveredCLI } from '../core/cli-discovery.js';
 import type { AppConfig } from '../types/config.js';
+import search from '@inquirer/search';
 import chalk from 'chalk';
 
 /**
- * Popular CLIs list
+ * Well-known CLI tools (for score boosting only, not exclusive list)
+ * These get extra points if discovered, improving their ranking
  */
-const POPULAR_CLIS = [
-  { name: 'git', description: 'Version control system' },
-  { name: 'docker', description: 'Container management' },
-  { name: 'npm', description: 'Node package manager' },
-  { name: 'kubectl', description: 'Kubernetes CLI' },
-  { name: 'python3', description: 'Python interpreter' },
-  { name: 'ffmpeg', description: 'Media processing' },
-  { name: 'curl', description: 'HTTP client' },
-  { name: 'aws', description: 'AWS CLI' },
-  { name: 'gcloud', description: 'Google Cloud CLI' },
-  { name: 'terraform', description: 'Infrastructure as code' },
-  { name: 'ansible', description: 'IT automation' },
-  { name: 'mcpjungle', description: 'MCP tool manager (legacy)' },
-];
+const WELL_KNOWN_TOOLS = new Set([
+  'git', 'docker', 'npm', 'kubectl', 'python3', 'python', 'node',
+  'ffmpeg', 'curl', 'wget', 'aws', 'gcloud', 'az', 'terraform',
+  'ansible', 'cargo', 'rustc', 'go', 'java', 'mvn', 'gradle',
+  'make', 'cmake', 'gcc', 'clang', 'jq', 'yq', 'gh', 'heroku',
+  'mcpjungle',
+]);
 
 /**
  * Interactive CLI switcher
@@ -120,46 +117,123 @@ export async function switchCLIInteractive(config: AppConfig): Promise<AppConfig
 }
 
 /**
- * Select a new CLI from popular list or custom
+ * Select a new CLI from discovered tools
  */
 async function selectNewCLI(): Promise<string | null> {
-  console.log(chalk.bold('🔍 Select CLI\n'));
+  console.log(chalk.bold('🔍 Discovering CLI tools from your system...\n'));
 
-  // Detect which popular CLIs are available
-  const available = POPULAR_CLIS.map(cli => ({
-    ...cli,
-    isAvailable: UniversalCLIExecutor.isAvailable(cli.name),
-  }));
+  const spinner = new Spinner();
+  spinner.start('Scanning PATH directories...');
 
-  const choices = available.map(cli => ({
-    value: cli.name,
-    name: `${cli.name}${cli.isAvailable ? ' ✓' : ''}`,
-    description: cli.description,
-  }));
+  try {
+    // Discover CLIs from system
+    let discovered = await discoverCLIs({
+      maxConcurrent: 15,
+      timeout: 1500,
+      minScore: -5,  // Allow negative scores for comprehensive list
+      limit: 200,    // Get top 200 candidates
+    });
 
-  // Add custom option
-  choices.push({
-    value: '__custom',
-    name: '📝 Custom CLI',
-    description: 'Enter a custom CLI command',
-  });
+    spinner.stop();
 
-  choices.push({
-    value: '__back',
-    name: '← Back',
-    description: 'Cancel',
-  });
+    if (discovered.length === 0) {
+      console.log(chalk.yellow('No CLI tools discovered. You can enter a custom command.\n'));
+      const customCLI = await Prompts.textInput('Enter CLI command name:', {
+        required: true,
+      });
+      return customCLI.trim();
+    }
 
-  const selected = await Prompts.select('Which CLI would you like to explore?', choices);
+    // Boost well-known tools
+    discovered = discovered.map(cli => {
+      if (WELL_KNOWN_TOOLS.has(cli.name)) {
+        return { ...cli, score: cli.score + 5 };
+      }
+      return cli;
+    });
 
-  if (selected === '__back') return null;
-  
-  if (selected === '__custom') {
+    // Re-sort after boosting
+    discovered.sort((a, b) => b.score - a.score);
+
+    console.log(chalk.gray(`Found ${discovered.length} CLI tools\n`));
+    console.log(chalk.gray('Type to search, or browse with arrow keys\n'));
+
+    // Use searchable select for better UX with many options
+    const selected = await search({
+      message: 'Which CLI would you like to explore?',
+      source: async (input) => {
+        const filtered = input
+          ? discovered.filter(cli =>
+              cli.name.toLowerCase().includes(input.toLowerCase())
+            )
+          : discovered;
+
+        const choices = filtered.slice(0, 50).map(cli => {
+          const helpIndicator = cli.hasHelp ? '📖' : '  ';
+          const categoryBadge = getCategoryBadge(cli.category);
+
+          return {
+            value: cli.name,
+            name: `${helpIndicator} ${cli.name}`,
+            description: `${categoryBadge} ${cli.path}`,
+          };
+        });
+
+        // Add special options at the end
+        if (!input || 'custom'.includes(input.toLowerCase())) {
+          choices.push({
+            value: '__custom',
+            name: '📝 Custom CLI',
+            description: 'Enter a CLI command name manually',
+          });
+        }
+
+        if (!input || 'back'.includes(input.toLowerCase())) {
+          choices.push({
+            value: '__back',
+            name: '← Back',
+            description: 'Cancel and return',
+          });
+        }
+
+        return choices;
+      },
+    });
+
+    if (selected === '__back') return null;
+
+    if (selected === '__custom') {
+      const customCLI = await Prompts.textInput('Enter CLI command name:', {
+        required: true,
+      });
+      return customCLI.trim();
+    }
+
+    return selected;
+
+  } catch (error) {
+    spinner.stop();
+    console.log(chalk.red('Discovery failed. You can enter a custom command.\n'));
+
     const customCLI = await Prompts.textInput('Enter CLI command name:', {
       required: true,
     });
     return customCLI.trim();
   }
+}
 
-  return selected;
+/**
+ * Get category badge for display
+ */
+function getCategoryBadge(category: DiscoveredCLI['category']): string {
+  switch (category) {
+    case 'user-installed':
+      return chalk.green('user');
+    case 'language-tool':
+      return chalk.blue('lang');
+    case 'system':
+      return chalk.gray('sys');
+    case 'unknown':
+      return chalk.dim('~');
+  }
 }

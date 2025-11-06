@@ -11,14 +11,14 @@ import { CLIIntrospector } from '../core/introspection.js';
 import type { AppConfig } from '../types/config.js';
 import type { CommandEntity } from '../types/cli.js';
 import chalk from 'chalk';
-import { formatQuickActionsBar, formatNavigationHint } from '../ui/keyboard-handler.js';
+import { formatNavigationHint } from '../ui/keyboard-handler.js';
 
 /**
  * Main explore workflow - discover and execute CLI commands
  */
 export async function exploreCommandsInteractive(config: AppConfig): Promise<void> {
   console.log(Formatters.header(`Explore ${config.targetCLI} Commands`));
-  process.stdout.write(formatQuickActionsBar());
+  console.log();
   process.stdout.write(formatNavigationHint('navigation'));
 
   try {

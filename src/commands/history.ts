@@ -14,7 +14,7 @@ import Table from 'cli-table3';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { formatQuickActionsBar, formatNavigationHint } from '../ui/keyboard-handler.js';
+import { formatNavigationHint } from '../ui/keyboard-handler.js';
 
 /**
  * Get history file path
@@ -86,7 +86,7 @@ export async function addToHistory(
  */
 export async function historyBrowserInteractive(config: AppConfig): Promise<void> {
   console.log(Formatters.header('Command History'));
-  process.stdout.write(formatQuickActionsBar());
+  console.log();
   process.stdout.write(formatNavigationHint('navigation'));
 
   try {

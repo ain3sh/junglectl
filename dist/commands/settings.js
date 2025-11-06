@@ -4,13 +4,12 @@ import { saveConfig, getConfigFilePath, resetConfig } from '../core/config.js';
 import { DEFAULT_CONFIG } from '../types/config.js';
 import { formatError } from '../utils/errors.js';
 import chalk from 'chalk';
-import { formatQuickActionsBar, formatNavigationHint } from '../ui/keyboard-handler.js';
+import { formatNavigationHint } from '../ui/keyboard-handler.js';
 export async function settingsMenuInteractive(config) {
     let currentConfig = { ...config };
     while (true) {
         try {
             console.log(chalk.gray('Press ESC to go back\n'));
-            process.stdout.write(formatQuickActionsBar());
             process.stdout.write(formatNavigationHint('navigation'));
             const settingsChoices = [
                 { value: 'view', name: '👁️  View Configuration', description: 'Display current settings' },

@@ -11,12 +11,7 @@ export declare const KEYBOARD_HINTS: {
     confirm: string;
 };
 export declare function formatNavigationHint(type?: keyof typeof KEYBOARD_HINTS): string;
-export declare const QUICK_ACTIONS: {
-    quit: string;
-    refresh: string;
-    help: string;
-};
-export declare function formatQuickActionsBar(): string;
+export declare function formatMainMenuHeader(): string;
 export declare function formatSelectionCount(selected: number, total: number): string;
 export declare const HELP_CONTENT: string;
 export declare function displayHelp(): void;
