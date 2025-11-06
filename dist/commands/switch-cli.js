@@ -1,21 +1,17 @@
 import { Prompts } from '../ui/prompts.js';
 import { Formatters } from '../ui/formatters.js';
+import { Spinner } from '../ui/spinners.js';
 import { UniversalCLIExecutor } from '../core/executor.js';
+import { discoverCLIs } from '../core/cli-discovery.js';
+import search from '@inquirer/search';
 import chalk from 'chalk';
-const POPULAR_CLIS = [
-    { name: 'git', description: 'Version control system' },
-    { name: 'docker', description: 'Container management' },
-    { name: 'npm', description: 'Node package manager' },
-    { name: 'kubectl', description: 'Kubernetes CLI' },
-    { name: 'python3', description: 'Python interpreter' },
-    { name: 'ffmpeg', description: 'Media processing' },
-    { name: 'curl', description: 'HTTP client' },
-    { name: 'aws', description: 'AWS CLI' },
-    { name: 'gcloud', description: 'Google Cloud CLI' },
-    { name: 'terraform', description: 'Infrastructure as code' },
-    { name: 'ansible', description: 'IT automation' },
-    { name: 'mcpjungle', description: 'MCP tool manager (legacy)' },
-];
+const WELL_KNOWN_TOOLS = new Set([
+    'git', 'docker', 'npm', 'kubectl', 'python3', 'python', 'node',
+    'ffmpeg', 'curl', 'wget', 'aws', 'gcloud', 'az', 'terraform',
+    'ansible', 'cargo', 'rustc', 'go', 'java', 'mvn', 'gradle',
+    'make', 'cmake', 'gcc', 'clang', 'jq', 'yq', 'gh', 'heroku',
+    'mcpjungle',
+]);
 export async function switchCLIInteractive(config) {
     console.log(Formatters.header('Switch CLI'));
     try {
@@ -79,35 +75,94 @@ export async function switchCLIInteractive(config) {
     }
 }
 async function selectNewCLI() {
-    console.log(chalk.bold('🔍 Select CLI\n'));
-    const available = POPULAR_CLIS.map(cli => ({
-        ...cli,
-        isAvailable: UniversalCLIExecutor.isAvailable(cli.name),
-    }));
-    const choices = available.map(cli => ({
-        value: cli.name,
-        name: `${cli.name}${cli.isAvailable ? ' ✓' : ''}`,
-        description: cli.description,
-    }));
-    choices.push({
-        value: '__custom',
-        name: '📝 Custom CLI',
-        description: 'Enter a custom CLI command',
-    });
-    choices.push({
-        value: '__back',
-        name: '← Back',
-        description: 'Cancel',
-    });
-    const selected = await Prompts.select('Which CLI would you like to explore?', choices);
-    if (selected === '__back')
-        return null;
-    if (selected === '__custom') {
+    console.log(chalk.bold('🔍 Discovering CLI tools from your system...\n'));
+    const spinner = new Spinner();
+    spinner.start('Scanning PATH directories...');
+    try {
+        let discovered = await discoverCLIs({
+            maxConcurrent: 15,
+            timeout: 1500,
+            minScore: -5,
+            limit: 200,
+        });
+        spinner.stop();
+        if (discovered.length === 0) {
+            console.log(chalk.yellow('No CLI tools discovered. You can enter a custom command.\n'));
+            const customCLI = await Prompts.textInput('Enter CLI command name:', {
+                required: true,
+            });
+            return customCLI.trim();
+        }
+        discovered = discovered.map(cli => {
+            if (WELL_KNOWN_TOOLS.has(cli.name)) {
+                return { ...cli, score: cli.score + 5 };
+            }
+            return cli;
+        });
+        discovered.sort((a, b) => b.score - a.score);
+        console.log(chalk.gray(`Found ${discovered.length} CLI tools\n`));
+        console.log(chalk.gray('Type to search, or browse with arrow keys\n'));
+        const selected = await search({
+            message: 'Which CLI would you like to explore?',
+            source: async (input) => {
+                const filtered = input
+                    ? discovered.filter(cli => cli.name.toLowerCase().includes(input.toLowerCase()))
+                    : discovered;
+                const choices = filtered.slice(0, 50).map(cli => {
+                    const helpIndicator = cli.hasHelp ? '📖' : '  ';
+                    const categoryBadge = getCategoryBadge(cli.category);
+                    return {
+                        value: cli.name,
+                        name: `${helpIndicator} ${cli.name}`,
+                        description: `${categoryBadge} ${cli.path}`,
+                    };
+                });
+                if (!input || 'custom'.includes(input.toLowerCase())) {
+                    choices.push({
+                        value: '__custom',
+                        name: '📝 Custom CLI',
+                        description: 'Enter a CLI command name manually',
+                    });
+                }
+                if (!input || 'back'.includes(input.toLowerCase())) {
+                    choices.push({
+                        value: '__back',
+                        name: '← Back',
+                        description: 'Cancel and return',
+                    });
+                }
+                return choices;
+            },
+        });
+        if (selected === '__back')
+            return null;
+        if (selected === '__custom') {
+            const customCLI = await Prompts.textInput('Enter CLI command name:', {
+                required: true,
+            });
+            return customCLI.trim();
+        }
+        return selected;
+    }
+    catch (error) {
+        spinner.stop();
+        console.log(chalk.red('Discovery failed. You can enter a custom command.\n'));
         const customCLI = await Prompts.textInput('Enter CLI command name:', {
             required: true,
         });
         return customCLI.trim();
     }
-    return selected;
+}
+function getCategoryBadge(category) {
+    switch (category) {
+        case 'user-installed':
+            return chalk.green('user');
+        case 'language-tool':
+            return chalk.blue('lang');
+        case 'system':
+            return chalk.gray('sys');
+        case 'unknown':
+            return chalk.dim('~');
+    }
 }
 //# sourceMappingURL=switch-cli.js.map
