@@ -13,7 +13,7 @@ import { loadConfig, saveConfig, isFirstRun, getConfigFilePath } from './core/co
 import { CLIIntrospector } from './core/introspection.js';
 import { DynamicMenuBuilder } from './core/menu-builder.js';
 import chalk from 'chalk';
-import { formatQuickActionsBar, formatNavigationHint } from './ui/keyboard-handler.js';
+import { formatNavigationHint, formatMainMenuHeader } from './ui/keyboard-handler.js';
 async function maybeRunDiscover() {
     const argv = process.argv.slice(2);
     if (argv[0] !== 'discover')
@@ -105,8 +105,7 @@ async function mainMenu() {
     }
     while (true) {
         try {
-            console.log(chalk.gray('Use arrow keys to navigate, ESC to stay in menu, Ctrl+C to exit\n'));
-            process.stdout.write(formatQuickActionsBar());
+            process.stdout.write(formatMainMenuHeader());
             process.stdout.write(formatNavigationHint('navigation'));
             let menuChoices;
             let introspector;
@@ -234,16 +233,14 @@ async function mainMenu() {
                 console.log('  ' + Formatters.statusBar(serverStatus));
             }
             console.log();
-            process.stdout.write(formatQuickActionsBar());
+            process.stdout.write(formatMainMenuHeader());
             process.stdout.write(formatNavigationHint('navigation'));
         }
         catch (error) {
             if (error instanceof Error) {
                 if (error.name === 'ExitPromptError') {
-                    console.log();
-                    console.log(chalk.gray('ESC pressed - staying in main menu'));
-                    console.log(chalk.gray('Use Ctrl+C to exit, or select Exit from menu\n'));
-                    continue;
+                    console.log(chalk.cyan('\n\n👋 Goodbye!\n'));
+                    process.exit(0);
                 }
                 console.error('\n' + Formatters.error(error.message));
                 await Prompts.confirm('\nPress Enter to continue', true);

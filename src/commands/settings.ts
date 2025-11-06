@@ -10,7 +10,7 @@ import type { AppConfig } from '../types/config.js';
 import { DEFAULT_CONFIG } from '../types/config.js';
 import { formatError } from '../utils/errors.js';
 import chalk from 'chalk';
-import { formatQuickActionsBar, formatNavigationHint } from '../ui/keyboard-handler.js';
+import { formatNavigationHint } from '../ui/keyboard-handler.js';
 
 /**
  * Settings menu
@@ -22,7 +22,6 @@ export async function settingsMenuInteractive(config: AppConfig): Promise<AppCon
   while (true) {
     try {
       console.log(chalk.gray('Press ESC to go back\n'));
-      process.stdout.write(formatQuickActionsBar());
       process.stdout.write(formatNavigationHint('navigation'));
       
       // Build settings menu (dynamic based on CLI)

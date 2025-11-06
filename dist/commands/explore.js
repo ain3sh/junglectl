@@ -4,10 +4,10 @@ import { Spinner } from '../ui/spinners.js';
 import { UniversalCLIExecutor } from '../core/executor.js';
 import { CLIIntrospector } from '../core/introspection.js';
 import chalk from 'chalk';
-import { formatQuickActionsBar, formatNavigationHint } from '../ui/keyboard-handler.js';
+import { formatNavigationHint } from '../ui/keyboard-handler.js';
 export async function exploreCommandsInteractive(config) {
     console.log(Formatters.header(`Explore ${config.targetCLI} Commands`));
-    process.stdout.write(formatQuickActionsBar());
+    console.log();
     process.stdout.write(formatNavigationHint('navigation'));
     try {
         console.log(chalk.gray('Discovering commands...\n'));

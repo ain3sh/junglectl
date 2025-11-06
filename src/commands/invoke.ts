@@ -16,7 +16,7 @@ import {
   UserCancelledError,
 } from '../utils/errors.js';
 import chalk from 'chalk';
-import { formatQuickActionsBar, formatNavigationHint } from '../ui/keyboard-handler.js';
+import { formatNavigationHint } from '../ui/keyboard-handler.js';
 
 const executor = new MCPJungleExecutor();
 
@@ -25,7 +25,7 @@ const executor = new MCPJungleExecutor();
  */
 export async function invokeToolInteractive(registryUrl?: string): Promise<void> {
   console.log(Formatters.header('Invoke Tool'));
-  process.stdout.write(formatQuickActionsBar());
+  console.log();
   process.stdout.write(formatNavigationHint('navigation'));
 
   try {

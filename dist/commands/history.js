@@ -7,7 +7,7 @@ import Table from 'cli-table3';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { formatQuickActionsBar, formatNavigationHint } from '../ui/keyboard-handler.js';
+import { formatNavigationHint } from '../ui/keyboard-handler.js';
 function getHistoryFilePath() {
     const configDir = path.join(os.homedir(), '.climb');
     return path.join(configDir, 'history.json');
@@ -45,7 +45,7 @@ export async function addToHistory(execution, maxSize = 100) {
 }
 export async function historyBrowserInteractive(config) {
     console.log(Formatters.header('Command History'));
-    process.stdout.write(formatQuickActionsBar());
+    console.log();
     process.stdout.write(formatNavigationHint('navigation'));
     try {
         const history = await loadHistory();

@@ -21,24 +21,18 @@ export function isUserCancellation(error) {
         (error instanceof Error && error.name === 'ExitPromptError'));
 }
 export const KEYBOARD_HINTS = {
-    navigation: chalk.gray('↑↓ navigate • ⏎ select • esc/ctrl+c back'),
-    multiSelect: chalk.gray('↑↓ navigate • space toggle • a toggle all • ⏎ confirm • esc back'),
-    input: chalk.gray('⏎ confirm • esc cancel'),
-    search: chalk.gray('type to filter • ↑↓ navigate • ⏎ select • esc back'),
-    confirm: chalk.gray('y/n or ⏎ • esc cancel'),
+    navigation: '↑↓ navigate • ⏎ select • esc back',
+    multiSelect: '↑↓ navigate • space select/deselect • ⏎ confirm',
+    input: '⏎ confirm • esc cancel',
+    search: 'type to filter • ↑↓ navigate • ⏎ select • esc back',
+    confirm: 'y/n or ⏎ • esc cancel',
 };
 export function formatNavigationHint(type = 'navigation') {
-    return '\n' + KEYBOARD_HINTS[type] + '\n';
+    const separator = chalk.gray('━'.repeat(60));
+    return separator + '\n' + chalk.gray(KEYBOARD_HINTS[type]) + '\n\n';
 }
-export const QUICK_ACTIONS = {
-    quit: chalk.gray('q: quit'),
-    refresh: chalk.gray('r: refresh'),
-    help: chalk.gray('?: help'),
-};
-export function formatQuickActionsBar() {
-    return chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n') +
-        `${QUICK_ACTIONS.quit} │ ${QUICK_ACTIONS.refresh} │ ${QUICK_ACTIONS.help}\n` +
-        chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+export function formatMainMenuHeader() {
+    return chalk.gray('Use Ctrl+C to exit, or select Exit from menu\n\n');
 }
 export function formatSelectionCount(selected, total) {
     if (selected === 0) {
@@ -53,7 +47,7 @@ ${chalk.bold('Navigation:')}
   ↑/↓         Navigate through options
   ⏎ (Enter)   Select/confirm current option
   ESC         Go back to previous menu
-  Ctrl+C      Exit application (with confirmation)
+  Ctrl+C      Exit application
 
 ${chalk.bold('List/Select Prompts:')}
   Type        Start filtering/searching
@@ -62,7 +56,7 @@ ${chalk.bold('List/Select Prompts:')}
   ESC         Cancel and go back
 
 ${chalk.bold('Multi-Select (Checkbox) Prompts:')}
-  Space       Toggle current item on/off
+  Space       Select/deselect current item
   a           Toggle all items
   i           Invert selection
   ↑/↓         Navigate through items
@@ -76,17 +70,12 @@ ${chalk.bold('Text Input:')}
   Ctrl+U      Clear line
   Ctrl+K      Clear to end
 
-${chalk.bold('Main Menu Quick Actions:')}
-  q           Quit application (currently in menus)
-  r           Refresh cache (reload data)
-  ?           Show this help
-
 ${chalk.bold('Tips:')}
   • ESC always goes back one level (never exits app)
-  • Ctrl+C exits with confirmation from main menu
-  • Space bar is for toggling checkboxes only
-  • Start typing to search in any list/select
-  • Use Tab for autocomplete where available
+  • Ctrl+C exits immediately from main menu
+  • Space bar is for selecting/deselecting in multi-select only
+  • Start typing to search/filter in any list
+  • "Back" option available as fallback on all menus
 
 ${chalk.gray('Press any key to close this help...')}
 `;
