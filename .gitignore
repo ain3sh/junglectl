@@ -11,6 +11,7 @@ pnpm-debug.log*
 # dist/
 build/
 *.tsbuildinfo
+autom4te.cache/
 
 # SEA build artifacts (exclude from git)
 dist/bundle.js
@@ -53,6 +54,10 @@ mcpjungle.db
 
 # OS
 Thumbs.db
+
+# System files
+fonts.dir
+fonts.scale
 
 # User config files
 myClient.json
