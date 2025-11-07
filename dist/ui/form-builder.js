@@ -1,4 +1,5 @@
-import { input, select, confirm } from '@inquirer/prompts';
+import { input, confirm } from '@inquirer/prompts';
+import customSelect from './custom-select.js';
 import { ValidationError } from '../utils/errors.js';
 import chalk from 'chalk';
 export async function buildDynamicForm(schema) {
@@ -117,10 +118,11 @@ async function buildEnumSelect(label, prop) {
         name: String(value),
         description: value === prop.default ? '(default)' : undefined,
     }));
-    return select({
+    return customSelect({
         message: label,
         choices,
         default: prop.default,
+        loop: false,
     });
 }
 async function buildArrayInput(label, prop, isRequired) {

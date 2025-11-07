@@ -3,7 +3,8 @@
  * Generates interactive forms from JSON Schema definitions
  */
 
-import { input, select, confirm } from '@inquirer/prompts';
+import { input, confirm } from '@inquirer/prompts';
+import customSelect from './custom-select.js';
 import type { ToolSchema, SchemaProperty } from '../types/mcpjungle.js';
 import { ValidationError } from '../utils/errors.js';
 import chalk from 'chalk';
@@ -207,10 +208,11 @@ async function buildEnumSelect(
     description: value === prop.default ? '(default)' : undefined,
   }));
 
-  return select({
+  return customSelect({
     message: label,
     choices,
     default: prop.default,
+    loop: false,
   });
 }
 
