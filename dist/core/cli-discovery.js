@@ -44,10 +44,28 @@ function isLikelyNoise(name, path) {
     if (path.includes('/System/Library/') || path.includes('/usr/libexec/')) {
         return true;
     }
+    if (path.startsWith('/mnt/')) {
+        return true;
+    }
+    if (name.toLowerCase().endsWith('.exe')) {
+        return true;
+    }
+    if (path.includes('.app/Contents/MacOS/') || path.includes('.app/Contents/Resources/')) {
+        return true;
+    }
+    if (path.includes('\\Program Files\\') || path.includes('\\Program Files (x86)\\')) {
+        return true;
+    }
+    if (path.includes('/Program Files/') || path.includes('/Program Files (x86)/')) {
+        return true;
+    }
+    if (name.toLowerCase().includes('helper') || name.toLowerCase().includes('agent')) {
+        return true;
+    }
     return false;
 }
 async function performDiscovery(options) {
-    const { maxConcurrent = 25, timeout = 2000, onProgress, } = options;
+    const { maxConcurrent = 10, timeout = 2000, onProgress, } = options;
     const allCandidates = await scanPathDirectories();
     const candidates = allCandidates.filter(candidate => !isLikelyNoise(candidate.name, candidate.path));
     const discovered = [];
@@ -143,23 +161,16 @@ async function testAndScoreCLI(candidate, timeout) {
     };
 }
 async function testHelpSupport(cliPath, timeout) {
-    const helpFlags = ['--help', '-h', 'help'];
-    const promises = helpFlags.map(async (flag) => {
+    const helpFlags = ['--help', '-h', '-?'];
+    for (const flag of helpFlags) {
         try {
             const output = await executeWithTimeout(cliPath, [flag], timeout);
             if (output && output.length > 10) {
                 return output;
             }
-            return null;
         }
         catch {
-            return null;
-        }
-    });
-    const results = await Promise.all(promises);
-    for (const result of results) {
-        if (result !== null) {
-            return result;
+            continue;
         }
     }
     return null;
@@ -168,6 +179,8 @@ function executeWithTimeout(command, args, timeout) {
     return new Promise((resolve) => {
         const child = spawn(command, args, {
             stdio: ['ignore', 'pipe', 'pipe'],
+            env: buildSandboxEnv(),
+            windowsHide: true,
         });
         let stdout = '';
         let timedOut = false;
@@ -193,6 +206,8 @@ function executeWithTimeout(command, args, timeout) {
                 stdout += data.toString();
             }
         });
+        child.stderr?.on('data', () => {
+        });
         child.on('close', () => {
             clearTimeout(sigtermTimer);
             if (!timedOut && stdout.trim()) {
@@ -207,6 +222,40 @@ function executeWithTimeout(command, args, timeout) {
             resolve(null);
         });
     });
+}
+function buildSandboxEnv() {
+    const env = {
+        ...process.env,
+        PAGER: 'cat',
+        MANPAGER: 'cat',
+        GIT_PAGER: 'cat',
+        AWS_PAGER: '',
+        SYSTEMD_PAGER: 'cat',
+        LESS: 'FRX',
+        DISPLAY: '',
+        WAYLAND_DISPLAY: '',
+        DBUS_SESSION_BUS_ADDRESS: '',
+        XDG_RUNTIME_DIR: '',
+        XDG_CURRENT_DESKTOP: '',
+        NO_AT_BRIDGE: '1',
+        QT_QPA_PLATFORM: 'offscreen',
+        SDL_AUDIODRIVER: 'dummy',
+        TERM: 'dumb',
+        COLUMNS: '80',
+        LINES: '24',
+        NO_COLOR: '1',
+        CLIMB_DISCOVERY: '1',
+        VISUAL: 'true',
+        EDITOR: 'true',
+        BROWSER: process.platform === 'win32'
+            ? 'C:\\Windows\\System32\\where.exe'
+            : 'true',
+        GIT_EDITOR: 'true',
+        SUDO_ASKPASS: '/bin/false',
+        ANSIBLE_NOCOLOR: '1',
+        CI: '1',
+    };
+    return env;
 }
 function scoreByName(name) {
     let score = 0;

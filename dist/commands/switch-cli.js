@@ -80,8 +80,8 @@ async function selectNewCLI() {
     spinner.start('Scanning PATH directories...');
     try {
         let discovered = await discoverCLIs({
-            maxConcurrent: 30,
-            timeout: 1000,
+            maxConcurrent: 8,
+            timeout: 1500,
             minScore: -5,
             limit: 200,
             onProgress: (current, total) => {

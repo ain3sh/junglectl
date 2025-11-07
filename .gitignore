@@ -62,3 +62,4 @@ fonts.scale
 # User config files
 myClient.json
 config/user.json
+CLAUDE_REMINDERS.md

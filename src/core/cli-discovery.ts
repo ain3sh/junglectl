@@ -2,6 +2,12 @@
  * CLI Discovery System
  * Dynamically discovers command-line tools available on the system
  * NO HARDCODED LISTS - pure algorithmic discovery from PATH
+ *
+ * CRITICAL SAFETY NOTES:
+ * - Help flags are tested SEQUENTIALLY (not in parallel) to prevent process explosion
+ * - maxConcurrent is kept low (default 10) to prevent spawning too many processes
+ * - GUI applications are filtered out to prevent opening app windows
+ * - These safeguards prevent runaway behavior that could look like malware
  */
 
 import fs from 'fs/promises';
@@ -108,6 +114,40 @@ function isLikelyNoise(name: string, path: string): boolean {
     return true;
   }
 
+  // CRITICAL: WSL Windows interop paths - THE ROOT CAUSE OF RUNAWAY BEHAVIOR
+  // WSL2 adds Windows executables to PATH via /mnt/c/Program Files/...
+  // These GUI apps launch when spawned and ignore --help flags
+  // This single filter prevents the catastrophic "opening every app" issue
+  if (path.startsWith('/mnt/')) {
+    return true;
+  }
+
+  // Windows executables - redundant safety for edge cases
+  // Catches .exe files that might slip through other filters
+  if (name.toLowerCase().endsWith('.exe')) {
+    return true;
+  }
+
+  // CRITICAL: Filter out GUI applications to prevent runaway behavior
+  // macOS app bundles - these will open GUI windows when executed
+  if (path.includes('.app/Contents/MacOS/') || path.includes('.app/Contents/Resources/')) {
+    return true;
+  }
+
+  // Windows GUI executables are typically in specific directories
+  // Check both backslashes (native Windows) and forward slashes (WSL)
+  if (path.includes('\\Program Files\\') || path.includes('\\Program Files (x86)\\')) {
+    return true; // Native Windows paths
+  }
+  if (path.includes('/Program Files/') || path.includes('/Program Files (x86)/')) {
+    return true; // WSL-style Windows paths (redundant with /mnt/ filter above, but explicit)
+  }
+
+  // Common GUI app patterns across platforms
+  if (name.toLowerCase().includes('helper') || name.toLowerCase().includes('agent')) {
+    return true;
+  }
+
   return false;
 }
 
@@ -116,7 +156,7 @@ function isLikelyNoise(name: string, path: string): boolean {
  */
 async function performDiscovery(options: DiscoveryOptions): Promise<DiscoveredCLI[]> {
   const {
-    maxConcurrent = 25, // Increased from 10 - modern systems can handle more concurrent processes
+    maxConcurrent = 10, // Conservative default to prevent runaway behavior (reduced from 25)
     timeout = 2000,
     onProgress,
   } = options;
@@ -266,33 +306,26 @@ async function testAndScoreCLI(
 
 /**
  * Test if CLI supports help flags
- * Tests all flags in PARALLEL for maximum performance
+ * IMPORTANT: Tests flags SEQUENTIALLY to prevent spawning too many processes
+ * This prevents the runaway behavior where GUI apps open simultaneously
  */
 async function testHelpSupport(cliPath: string, timeout: number): Promise<string | null> {
-  const helpFlags = ['--help', '-h', 'help'];
+  // Removed 'help' positional argument - it can trigger subcommands/interactive modes
+  // Added '-?' which is safer and Windows-compatible
+  const helpFlags = ['--help', '-h', '-?'];
 
-  // Test all flags in parallel and return the first successful result
-  // This is 3x faster than sequential testing in worst case
-  const promises = helpFlags.map(async (flag) => {
+  // Test flags one at a time, stop on first success
+  // This is CRITICAL to prevent spawning 3x processes for every CLI
+  // Sequential testing: if --help works, we never test -h or -?
+  for (const flag of helpFlags) {
     try {
       const output = await executeWithTimeout(cliPath, [flag], timeout);
       if (output && output.length > 10) {
-        return output;
+        return output; // Stop on first success
       }
-      return null;
     } catch {
-      return null;
-    }
-  });
-
-  // Use Promise.race pattern: return first successful result
-  // If all fail, Promise.all will resolve with all nulls
-  const results = await Promise.all(promises);
-
-  // Return first non-null result
-  for (const result of results) {
-    if (result !== null) {
-      return result;
+      // Try next flag
+      continue;
     }
   }
 
@@ -308,6 +341,8 @@ function executeWithTimeout(command: string, args: string[], timeout: number): P
     // Note: spawn's timeout option is unreliable, so we implement our own
     const child = spawn(command, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
+      env: buildSandboxEnv(),       // CRITICAL: Sandbox environment prevents GUI launches
+      windowsHide: true,            // Windows-specific GUI suppression
     });
 
     let stdout = '';
@@ -344,6 +379,13 @@ function executeWithTimeout(command: string, args: string[], timeout: number): P
       }
     });
 
+    // CRITICAL: Drain stderr to prevent backpressure hangs
+    // If stderr buffer fills up and we don't read it, the process will block
+    // This was causing processes to hang indefinitely on WSL
+    child.stderr?.on('data', () => {
+      // Intentionally empty - just drain to prevent process from blocking
+    });
+
     child.on('close', () => {
       clearTimeout(sigtermTimer);
       if (!timedOut && stdout.trim()) {
@@ -358,6 +400,56 @@ function executeWithTimeout(command: string, args: string[], timeout: number): P
       resolve(null);
     });
   });
+}
+
+/**
+ * Build execution environment that prevents interactive pagers and GUI launches
+ * CRITICAL: This is a key defense against GUI apps launching on WSL/Linux/macOS
+ */
+function buildSandboxEnv(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+
+    // Prevent interactive pagers (blocks waiting for user input)
+    PAGER: 'cat',
+    MANPAGER: 'cat',
+    GIT_PAGER: 'cat',
+    AWS_PAGER: '',
+    SYSTEMD_PAGER: 'cat',
+    LESS: 'FRX', // F=quit if one screen, R=raw control chars, X=no init
+
+    // Prevent GUI launches (CRITICAL for WSL with WSLg)
+    DISPLAY: '',                    // X11 - blocks GUI on Linux/WSL
+    WAYLAND_DISPLAY: '',            // Wayland - blocks GUI on modern Linux
+    DBUS_SESSION_BUS_ADDRESS: '',   // D-Bus - used for app launching
+    XDG_RUNTIME_DIR: '',            // XDG runtime - used by desktop apps
+    XDG_CURRENT_DESKTOP: '',        // Desktop environment detection
+    NO_AT_BRIDGE: '1',              // Accessibility bridge - can trigger GUI
+    QT_QPA_PLATFORM: 'offscreen',   // Qt apps run headless
+    SDL_AUDIODRIVER: 'dummy',       // SDL apps use dummy audio
+
+    // Force non-interactive, deterministic output
+    TERM: 'dumb',                   // Simplest terminal type
+    COLUMNS: '80',                  // Fixed width output
+    LINES: '24',                    // Fixed height output
+    NO_COLOR: '1',                  // Disable ANSI colors
+    CLIMB_DISCOVERY: '1',           // Marker for debugging
+
+    // Neutralize editor/browser launches
+    VISUAL: 'true',                 // Editor that does nothing (Unix 'true' command)
+    EDITOR: 'true',                 // Editor that does nothing
+    BROWSER: process.platform === 'win32'
+      ? 'C:\\Windows\\System32\\where.exe'  // Windows stub that exists but is safe
+      : 'true',                              // Unix stub
+    GIT_EDITOR: 'true',             // Git-specific editor override
+    SUDO_ASKPASS: '/bin/false',     // Never prompt for sudo password
+
+    // Additional CLI tool-specific flags
+    ANSIBLE_NOCOLOR: '1',           // Ansible: disable colors
+    CI: '1',                        // Many CLIs detect CI and disable interactive features
+  };
+
+  return env;
 }
 
 /**
