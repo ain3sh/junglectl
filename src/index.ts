@@ -18,6 +18,7 @@ import { settingsMenuInteractive } from './commands/settings.js';
 import { loadConfig, saveConfig, isFirstRun, getConfigFilePath } from './core/config.js';
 import { CLIIntrospector } from './core/introspection.js';
 import { DynamicMenuBuilder } from './core/menu-builder.js';
+import { addSingleCLIToCache } from './core/cli-discovery.js';
 import type { AppConfig } from './types/config.js';
 import chalk from 'chalk';
 import { formatNavigationHint, formatMainMenuHeader } from './ui/keyboard-handler.js';
@@ -57,6 +58,12 @@ async function maybeDirectLaunch(): Promise<void> {
   await saveConfig(config);
 
   console.log(chalk.green(`\n✓ Switched to ${requestedCLI}\n`));
+
+  // Add to cache in background (non-blocking, fire-and-forget)
+  // This runs async while user continues to TUI
+  addSingleCLIToCache(requestedCLI).catch(() => {
+    // Silently ignore cache failures
+  });
 }
 
 // Non-interactive discovery command for LLMs

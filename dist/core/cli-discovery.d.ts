@@ -16,4 +16,5 @@ export interface DiscoveryOptions {
     onProgress?: (current: number, total: number) => void;
 }
 export declare function discoverCLIs(options?: DiscoveryOptions): Promise<DiscoveredCLI[]>;
+export declare function addSingleCLIToCache(cliName: string): Promise<void>;
 //# sourceMappingURL=cli-discovery.d.ts.map

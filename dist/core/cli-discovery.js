@@ -341,4 +341,59 @@ function hashString(str) {
     }
     return hash.toString(36);
 }
+export async function addSingleCLIToCache(cliName) {
+    try {
+        const cliPath = await findCLIPath(cliName);
+        if (!cliPath)
+            return;
+        const helpResult = await testHelpSupport(cliPath, 1500);
+        const score = scoreByName(cliName) + scoreByCategory(detectCategory(cliPath));
+        const helpQuality = helpResult
+            ? (helpResult.length > 500 ? 'rich' : 'basic')
+            : 'none';
+        const discoveredCLI = {
+            name: cliName,
+            path: cliPath,
+            score: score + (helpResult ? 10 : 0),
+            hasHelp: !!helpResult,
+            helpQuality: helpQuality,
+            category: detectCategory(cliPath),
+        };
+        const cached = await loadCache();
+        const clis = cached?.clis || [];
+        const existingIndex = clis.findIndex(c => c.name === cliName);
+        if (existingIndex >= 0) {
+            clis[existingIndex] = discoveredCLI;
+        }
+        else {
+            clis.push(discoveredCLI);
+            clis.sort((a, b) => b.score - a.score);
+        }
+        await saveCache(clis);
+    }
+    catch {
+    }
+}
+async function findCLIPath(cliName) {
+    return new Promise((resolve) => {
+        const command = os.platform() === 'win32' ? 'where' : 'which';
+        const child = spawn(command, [cliName], {
+            stdio: ['ignore', 'pipe', 'ignore'],
+        });
+        let stdout = '';
+        child.stdout?.on('data', (data) => {
+            stdout += data.toString();
+        });
+        child.on('close', (code) => {
+            if (code === 0 && stdout.trim()) {
+                const firstPath = stdout.trim().split('\n')[0];
+                resolve(firstPath || null);
+            }
+            else {
+                resolve(null);
+            }
+        });
+        child.on('error', () => resolve(null));
+    });
+}
 //# sourceMappingURL=cli-discovery.js.map

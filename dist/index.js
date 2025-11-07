@@ -12,6 +12,7 @@ import { settingsMenuInteractive } from './commands/settings.js';
 import { loadConfig, saveConfig, isFirstRun, getConfigFilePath } from './core/config.js';
 import { CLIIntrospector } from './core/introspection.js';
 import { DynamicMenuBuilder } from './core/menu-builder.js';
+import { addSingleCLIToCache } from './core/cli-discovery.js';
 import chalk from 'chalk';
 import { formatNavigationHint, formatMainMenuHeader } from './ui/keyboard-handler.js';
 async function maybeDirectLaunch() {
@@ -33,6 +34,8 @@ async function maybeDirectLaunch() {
     config.cliPath = undefined;
     await saveConfig(config);
     console.log(chalk.green(`\n✓ Switched to ${requestedCLI}\n`));
+    addSingleCLIToCache(requestedCLI).catch(() => {
+    });
 }
 async function maybeRunDiscover() {
     const argv = process.argv.slice(2);
