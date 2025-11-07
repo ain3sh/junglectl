@@ -1,5 +1,6 @@
-import { input, select, confirm, checkbox } from '@inquirer/prompts';
+import { input, confirm, checkbox } from '@inquirer/prompts';
 import search from '@inquirer/search';
+import customSelect from './custom-select.js';
 import { cache } from '../core/cache.js';
 import { MCPJungleExecutor } from '../core/executor.js';
 import { OutputParser } from '../core/parser.js';
@@ -71,7 +72,7 @@ export class Prompts {
         });
     }
     static async selectTransport() {
-        return select({
+        return customSelect({
             message: 'Select transport type',
             choices: [
                 {
@@ -90,6 +91,7 @@ export class Prompts {
                     description: 'Server-sent events transport (not fully supported)',
                 },
             ],
+            loop: false,
         });
     }
     static async selectMultipleTools(message = 'Select tools to include', registryUrl) {
@@ -163,10 +165,12 @@ export class Prompts {
             default: defaultValue,
         });
     }
-    static async select(message, choices) {
-        return select({
+    static async select(message, choices, options = {}) {
+        return customSelect({
             message,
             choices,
+            loop: options.loop ?? false,
+            pageSize: options.pageSize,
         });
     }
     static async selectGroup(message = 'Select a tool group', registryUrl) {

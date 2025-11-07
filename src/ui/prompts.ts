@@ -3,8 +3,9 @@
  * Autocomplete, selection, and input builders
  */
 
-import { input, select, confirm, checkbox } from '@inquirer/prompts';
+import { input, confirm, checkbox } from '@inquirer/prompts';
 import search from '@inquirer/search';
+import customSelect from './custom-select.js';
 import { cache } from '../core/cache.js';
 import { MCPJungleExecutor } from '../core/executor.js';
 import { OutputParser } from '../core/parser.js';
@@ -112,7 +113,7 @@ export class Prompts {
    * Transport type selection
    */
   static async selectTransport(): Promise<TransportType> {
-    return select({
+    return customSelect({
       message: 'Select transport type',
       choices: [
         {
@@ -131,6 +132,7 @@ export class Prompts {
           description: 'Server-sent events transport (not fully supported)',
         },
       ],
+      loop: false, // Disable circular rendering
     });
   }
 
@@ -247,11 +249,14 @@ export class Prompts {
    */
   static async select<T extends string>(
     message: string,
-    choices: Array<{ value: T; name: string; description?: string }>
+    choices: Array<{ value: T; name: string; description?: string }>,
+    options: { loop?: boolean; pageSize?: number } = {}
   ): Promise<T> {
-    return select({
+    return customSelect({
       message,
       choices,
+      loop: options.loop ?? false, // Disable circular rendering by default
+      pageSize: options.pageSize,
     });
   }
 

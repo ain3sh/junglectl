@@ -15,7 +15,10 @@ export declare class Prompts {
         value: T;
         name: string;
         description?: string;
-    }>): Promise<T>;
+    }>, options?: {
+        loop?: boolean;
+        pageSize?: number;
+    }): Promise<T>;
     static selectGroup(message?: string, registryUrl?: string): Promise<string>;
     static selectPrompt(message?: string, serverFilter?: string, registryUrl?: string): Promise<string>;
 }
