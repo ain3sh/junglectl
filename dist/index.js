@@ -12,8 +12,31 @@ import { settingsMenuInteractive } from './commands/settings.js';
 import { loadConfig, saveConfig, isFirstRun, getConfigFilePath } from './core/config.js';
 import { CLIIntrospector } from './core/introspection.js';
 import { DynamicMenuBuilder } from './core/menu-builder.js';
+import { addSingleCLIToCache } from './core/cli-discovery.js';
 import chalk from 'chalk';
 import { formatNavigationHint, formatMainMenuHeader } from './ui/keyboard-handler.js';
+async function maybeDirectLaunch() {
+    const argv = process.argv.slice(2);
+    if (argv.length === 0 || argv[0] === 'discover')
+        return;
+    const requestedCLI = argv[0];
+    const config = await loadConfig();
+    if (config.targetCLI === requestedCLI) {
+        return;
+    }
+    const isAvailable = UniversalCLIExecutor.isAvailable(requestedCLI);
+    if (!isAvailable) {
+        console.log(chalk.red(`\n✗ "${requestedCLI}" not found in PATH.`));
+        console.log(chalk.gray('Make sure it is installed and accessible.\n'));
+        process.exit(1);
+    }
+    config.targetCLI = requestedCLI;
+    config.cliPath = undefined;
+    await saveConfig(config);
+    console.log(chalk.green(`\n✓ Switched to ${requestedCLI}\n`));
+    addSingleCLIToCache(requestedCLI).catch(() => {
+    });
+}
 async function maybeRunDiscover() {
     const argv = process.argv.slice(2);
     if (argv[0] !== 'discover')
@@ -39,6 +62,7 @@ async function showWelcomeIfFirstRun() {
     }
 }
 async function mainMenu() {
+    await maybeDirectLaunch();
     if (await maybeRunDiscover())
         return;
     let config;

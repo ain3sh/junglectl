@@ -18,9 +18,53 @@ import { settingsMenuInteractive } from './commands/settings.js';
 import { loadConfig, saveConfig, isFirstRun, getConfigFilePath } from './core/config.js';
 import { CLIIntrospector } from './core/introspection.js';
 import { DynamicMenuBuilder } from './core/menu-builder.js';
+import { addSingleCLIToCache } from './core/cli-discovery.js';
 import type { AppConfig } from './types/config.js';
 import chalk from 'chalk';
 import { formatNavigationHint, formatMainMenuHeader } from './ui/keyboard-handler.js';
+
+/**
+ * Check if user requested a specific CLI (e.g., `climb npm`)
+ * If so, switch to that CLI and continue to main menu
+ */
+async function maybeDirectLaunch(): Promise<void> {
+  const argv = process.argv.slice(2);
+
+  // No args or is a known command - skip direct launch
+  if (argv.length === 0 || argv[0] === 'discover') return;
+
+  const requestedCLI = argv[0]!;
+
+  // Load current config
+  const config = await loadConfig();
+
+  // If already on requested CLI, nothing to do
+  if (config.targetCLI === requestedCLI) {
+    return;
+  }
+
+  // Check if CLI is available
+  const isAvailable = UniversalCLIExecutor.isAvailable(requestedCLI);
+
+  if (!isAvailable) {
+    console.log(chalk.red(`\n✗ "${requestedCLI}" not found in PATH.`));
+    console.log(chalk.gray('Make sure it is installed and accessible.\n'));
+    process.exit(1);
+  }
+
+  // CLI is available - switch to it
+  config.targetCLI = requestedCLI;
+  config.cliPath = undefined;
+  await saveConfig(config);
+
+  console.log(chalk.green(`\n✓ Switched to ${requestedCLI}\n`));
+
+  // Add to cache in background (non-blocking, fire-and-forget)
+  // This runs async while user continues to TUI
+  addSingleCLIToCache(requestedCLI).catch(() => {
+    // Silently ignore cache failures
+  });
+}
 
 // Non-interactive discovery command for LLMs
 async function maybeRunDiscover(): Promise<boolean> {
@@ -55,6 +99,9 @@ async function showWelcomeIfFirstRun(): Promise<void> {
  * Main menu
  */
 async function mainMenu(): Promise<void> {
+  // If invoked as `climb <cli-name>`, switch to that CLI
+  await maybeDirectLaunch();
+
   // If invoked as `climb discover ...`, run discovery and exit
   if (await maybeRunDiscover()) return;
   // Load configuration

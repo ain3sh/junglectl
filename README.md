@@ -156,11 +156,11 @@ climb gives LLM agents a discovery surface similar to MCP servers’ tool listin
 
 ### Headless interfaces
 
-* **Export command graph**
+* **Discover command graph**
 
   ```bash
   # Build a machine‑readable arg/subcommand tree from CLI help
-  climb export <cli> --format json > graph.json
+  climb discover <cli> --format json > graph.json
   ```
 
   Output includes commands, summaries, options/flags with types, required/optional, and examples. Stable IDs let agents cache and reference nodes.
@@ -193,7 +193,7 @@ climb gives LLM agents a discovery surface similar to MCP servers’ tool listin
 
 ### MCP adjacency
 
-If you already use MCP servers, you can keep them for high‑value, hand‑curated tools and use **climb export** to fill the gaps for long‑tail CLIs. The effect mirrors MCP **tool discovery** for everything that exposes `--help`.
+If you already use MCP servers, you can keep them for high‑value, hand‑curated tools and use **climb discover** to fill the gaps for long‑tail CLIs. The effect mirrors MCP **tool discovery** for everything that exposes `--help`.
 
 ---
 

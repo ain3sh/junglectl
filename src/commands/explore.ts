@@ -8,8 +8,10 @@ import { Formatters } from '../ui/formatters.js';
 import { Spinner } from '../ui/spinners.js';
 import { UniversalCLIExecutor } from '../core/executor.js';
 import { CLIIntrospector } from '../core/introspection.js';
+import { HelpParser } from '../core/help-parser.js';
 import type { AppConfig } from '../types/config.js';
 import type { CommandEntity } from '../types/cli.js';
+import type { CommandStructure } from '../core/introspection.js';
 import chalk from 'chalk';
 import { formatNavigationHint } from '../ui/keyboard-handler.js';
 
@@ -27,8 +29,15 @@ export async function exploreCommandsInteractive(config: AppConfig): Promise<voi
     const spinner = new Spinner();
     spinner.start('Analyzing CLI structure...');
 
-    const introspector = new CLIIntrospector();
-    const structure = await introspector.getCommandStructure();
+    // Use appropriate introspection based on CLI type
+    let structure;
+    if (config.targetCLI === 'mcpjungle') {
+      const introspector = new CLIIntrospector(config.registryUrl);
+      structure = await introspector.getCommandStructure();
+    } else {
+      // For generic CLIs, use HelpParser with UniversalCLIExecutor
+      structure = await discoverGenericCLI(config.targetCLI, spinner);
+    }
 
     spinner.succeed(`Found ${structure.commands.length} commands`);
 
@@ -47,7 +56,7 @@ export async function exploreCommandsInteractive(config: AppConfig): Promise<voi
     if (!command) return; // User cancelled
 
     // Step 3: Check for subcommands
-    const subcommandPath = await navigateSubcommands([command.name], config);
+    const subcommandPath = await navigateSubcommands([command.name], config, structure);
     if (!subcommandPath) return; // User cancelled
 
     // Step 4: Build arguments for the command
@@ -89,28 +98,36 @@ async function selectCommand(commands: CommandEntity[], config: AppConfig): Prom
   // Add back option
   choices.push({ value: '__back', name: '← Back', description: 'Return to main menu' });
 
-  const selected = await Prompts.select(
-    `Select a ${config.targetCLI} command:`,
-    choices
-  );
+  try {
+    const selected = await Prompts.select(
+      `Select a ${config.targetCLI} command:`,
+      choices
+    );
 
-  if (selected === '__back') return null;
+    if (selected === '__back') return null;
 
-  const command = sortedCommands.find(c => c.name === selected);
-  return command || null;
+    const command = sortedCommands.find(c => c.name === selected);
+    return command || null;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'ExitPromptError') {
+      // User pressed ESC
+      return null;
+    }
+    throw error;
+  }
 }
 
 /**
  * Navigate through subcommand tree if present
  */
-async function navigateSubcommands(path: string[], config: AppConfig): Promise<string[] | null> {
-  // Check if current command has subcommands
-  const introspector = new CLIIntrospector();
-  const structure = await introspector.getCommandStructure();
-  
+async function navigateSubcommands(
+  path: string[],
+  config: AppConfig,
+  structure: CommandStructure
+): Promise<string[] | null> {
   const currentCommand = path[path.length - 1];
   if (!currentCommand) return path;
-  
+
   const subcommands = structure.subcommands.get(currentCommand);
 
   if (!subcommands || subcommands.length === 0) {
@@ -131,13 +148,21 @@ async function navigateSubcommands(path: string[], config: AppConfig): Promise<s
   choices.push({ value: '__execute', name: '▶ Execute this command', description: 'Run without subcommand' });
   choices.push({ value: '__back', name: '← Back', description: 'Go back' });
 
-  const selected = await Prompts.select('Select subcommand or execute:', choices);
+  try {
+    const selected = await Prompts.select('Select subcommand or execute:', choices);
 
-  if (selected === '__back') return null;
-  if (selected === '__execute') return path;
+    if (selected === '__back') return null;
+    if (selected === '__execute') return path;
 
-  // Recurse into subcommand
-  return navigateSubcommands([...path, selected], config);
+    // Recurse into subcommand
+    return navigateSubcommands([...path, selected], config, structure);
+  } catch (error) {
+    if (error instanceof Error && error.name === 'ExitPromptError') {
+      // User pressed ESC
+      return null;
+    }
+    throw error;
+  }
 }
 
 /**
@@ -278,4 +303,104 @@ async function executeCommand(
 async function saveToHistory(execution: any): Promise<void> {
   const { addToHistory } = await import('./history.js');
   await addToHistory(execution, 100); // Use default max size
+}
+
+/**
+ * Discover generic CLI commands using HelpParser
+ * This is for non-mcpjungle CLIs like git, docker, npm, etc.
+ */
+async function discoverGenericCLI(cliName: string, spinner: Spinner): Promise<CommandStructure> {
+  const executor = new UniversalCLIExecutor(cliName);
+  const parser = new HelpParser();
+
+  // Try different help flags
+  const helpProbes = [['--help'], ['-h'], ['help']];
+  let helpText = '';
+
+  for (const args of helpProbes) {
+    try {
+      spinner.update(`Trying ${cliName} ${args.join(' ')}...`);
+      const result = await executor.execute(args, {
+        timeout: 8000,
+        acceptOutputOnError: true,
+      });
+      if (result.stdout.trim()) {
+        helpText = result.stdout;
+        break;
+      }
+    } catch {
+      // Try next probe
+      continue;
+    }
+  }
+
+  if (!helpText) {
+    // No help found - return empty structure
+    return {
+      commands: [],
+      subcommands: new Map(),
+      telemetry: { subcommands: {}, probes: [] },
+      timestamp: Date.now(),
+    };
+  }
+
+  // Parse help text
+  const parsed = parser.parse(helpText);
+
+  // Convert to command structure format
+  const commands = parsed.commands
+    .filter(cmd => cmd.confidence >= 0.35)
+    .map(cmd => ({
+      name: cmd.name,
+      description: cmd.description,
+      category: 'basic' as const,
+      hasSubcommands: false, // Will be updated if subcommands found
+      confidence: cmd.confidence,
+    }));
+
+  // Probe for subcommands on high-confidence commands
+  const subcommands = new Map<string, any[]>();
+  const highConfidenceCommands = commands.filter(c => c.confidence >= 0.5).slice(0, 10);
+
+  for (const command of highConfidenceCommands) {
+    try {
+      spinner.update(`Checking ${cliName} ${command.name} for subcommands...`);
+      const result = await executor.execute([command.name, '--help'], {
+        timeout: 5000,
+        acceptOutputOnError: true,
+      });
+
+      if (result.stdout.trim()) {
+        const subParsed = parser.parse(result.stdout);
+        const subs = subParsed.commands
+          .filter(sub => sub.name !== command.name && sub.confidence >= 0.35)
+          .map(sub => ({
+            name: sub.name,
+            description: sub.description,
+            confidence: sub.confidence,
+            path: [command.name, sub.name],
+          }));
+
+        if (subs.length > 0) {
+          subcommands.set(command.name, subs);
+          // Update parent command to indicate it has subcommands
+          command.hasSubcommands = true;
+        }
+      }
+    } catch {
+      // Subcommand check failed, skip
+      continue;
+    }
+  }
+
+  return {
+    commands,
+    subcommands,
+    telemetry: {
+      root: parsed.telemetry,
+      subcommands: {},
+      probes: [],
+    },
+    timestamp: Date.now(),
+  };
 }

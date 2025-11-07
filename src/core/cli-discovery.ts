@@ -580,3 +580,84 @@ function hashString(str: string): string {
   }
   return hash.toString(36);
 }
+
+/**
+ * Add a single CLI to cache (async, non-blocking)
+ * Used when user directly launches a CLI (e.g., `climb npm`)
+ * Tests help support and adds to cache in background
+ */
+export async function addSingleCLIToCache(cliName: string): Promise<void> {
+  try {
+    // Find CLI path using which
+    const cliPath = await findCLIPath(cliName);
+    if (!cliPath) return; // Not found
+
+    // Test help support (quick, 1.5s timeout)
+    const helpResult = await testHelpSupport(cliPath, 1500);
+
+    // Score and categorize
+    const score = scoreByName(cliName) + scoreByCategory(detectCategory(cliPath));
+    const helpQuality = helpResult
+      ? (helpResult.length > 500 ? 'rich' : 'basic')
+      : 'none';
+
+    const discoveredCLI: DiscoveredCLI = {
+      name: cliName,
+      path: cliPath,
+      score: score + (helpResult ? 10 : 0),
+      hasHelp: !!helpResult,
+      helpQuality: helpQuality as 'rich' | 'basic' | 'none',
+      category: detectCategory(cliPath),
+    };
+
+    // Load existing cache
+    const cached = await loadCache();
+    const clis = cached?.clis || [];
+
+    // Check if already exists
+    const existingIndex = clis.findIndex(c => c.name === cliName);
+    if (existingIndex >= 0) {
+      // Update existing entry
+      clis[existingIndex] = discoveredCLI;
+    } else {
+      // Add new entry
+      clis.push(discoveredCLI);
+      // Re-sort by score
+      clis.sort((a, b) => b.score - a.score);
+    }
+
+    // Save cache
+    await saveCache(clis);
+  } catch {
+    // Cache update failed - not critical, silently ignore
+  }
+}
+
+/**
+ * Find full path to CLI using which/where command
+ */
+async function findCLIPath(cliName: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const command = os.platform() === 'win32' ? 'where' : 'which';
+    const child = spawn(command, [cliName], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+
+    let stdout = '';
+    child.stdout?.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    child.on('close', (code) => {
+      if (code === 0 && stdout.trim()) {
+        // Return first line (in case multiple paths)
+        const firstPath = stdout.trim().split('\n')[0];
+        resolve(firstPath || null);
+      } else {
+        resolve(null);
+      }
+    });
+
+    child.on('error', () => resolve(null));
+  });
+}
