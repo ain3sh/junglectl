@@ -59,33 +59,14 @@ async function mainMenu(): Promise<void> {
   if (await maybeRunDiscover()) return;
   // Load configuration
   let config: AppConfig;
-  let wasFirstRun = false;
   try {
-    wasFirstRun = await isFirstRun();
     config = await loadConfig();
 
     // Save config on first run
-    if (wasFirstRun) {
+    if (await isFirstRun()) {
       await saveConfig(config);
       await showWelcomeIfFirstRun();
-
-      // If this is a migrated config from old junglectl, offer to switch CLI
-      if (config.targetCLI === 'mcpjungle' && config.registryUrl) {
-        console.log(chalk.yellow('  📦 Detected migrated configuration from junglectl\n'));
-        console.log(chalk.gray('  climb now works with ANY CLI tool (git, docker, npm, kubectl, etc.)'));
-        console.log(chalk.gray('  You can keep mcpjungle or explore other tools.\n'));
-
-        const exploreCLIs = await Prompts.confirm('Explore other CLI tools now?', true);
-        if (exploreCLIs) {
-          const { switchCLIInteractive } = await import('./commands/switch-cli.js');
-          config = await switchCLIInteractive(config);
-          await saveConfig(config);
-        } else {
-          console.log(chalk.gray('\n  Keeping mcpjungle. You can switch anytime from Settings → Switch CLI\n'));
-        }
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Brief pause to read message
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Brief pause to read message
     }
   } catch (error) {
     console.error(Formatters.error('Failed to load configuration'));
@@ -283,25 +264,6 @@ async function mainMenu(): Promise<void> {
 
         case 'enable':
         case 'disable':
-          if (config.targetCLI === 'mcpjungle') {
-            await enableDisableMenuInteractive(config.registryUrl);
-          }
-          break;
-
-        // Legacy cases (for backward compatibility)
-        case 'browse':
-          if (config.targetCLI === 'mcpjungle') {
-            await browseInteractive(config.registryUrl);
-          }
-          break;
-
-        case 'groups':
-          if (config.targetCLI === 'mcpjungle') {
-            await groupsMenuInteractive(config.registryUrl);
-          }
-          break;
-
-        case 'enable-disable':
           if (config.targetCLI === 'mcpjungle') {
             await enableDisableMenuInteractive(config.registryUrl);
           }

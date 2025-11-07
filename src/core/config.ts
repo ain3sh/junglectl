@@ -7,21 +7,13 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import type { AppConfig } from '../types/config.js';
-import { DEFAULT_CONFIG, isLegacyConfig, migrateLegacyConfig } from '../types/config.js';
+import { DEFAULT_CONFIG } from '../types/config.js';
 
 /**
  * Get the configuration directory path
- * Renamed from .junglectl to .climb for v2.0
  */
 export function getConfigDir(): string {
   return path.join(os.homedir(), '.climb');
-}
-
-/**
- * Get legacy configuration directory path (for migration)
- */
-function getLegacyConfigDir(): string {
-  return path.join(os.homedir(), '.junglectl');
 }
 
 /**
@@ -48,61 +40,21 @@ export async function ensureConfigDir(): Promise<void> {
 /**
  * Load configuration from file
  * Returns defaults if file doesn't exist
- * Handles migration from legacy junglectl config
  */
 export async function loadConfig(): Promise<AppConfig> {
   try {
     await ensureConfigDir();
     const configPath = getConfigFilePath();
-    
-    // Check if new config exists
-    let configExists = false;
-    try {
-      await fs.access(configPath);
-      configExists = true;
-    } catch {
-      // New config doesn't exist
-    }
 
-    // If new config doesn't exist, check for legacy config
-    if (!configExists) {
-      const legacyPath = path.join(getLegacyConfigDir(), 'config.json');
-      try {
-        await fs.access(legacyPath);
-        // Legacy config exists - migrate it
-        const legacyData = await fs.readFile(legacyPath, 'utf-8');
-        const legacyConfig = JSON.parse(legacyData);
-        
-        if (isLegacyConfig(legacyConfig)) {
-          const migratedConfig = migrateLegacyConfig(legacyConfig);
-          // Save migrated config
-          await saveConfig(migratedConfig);
-          return migratedConfig;
-        }
-      } catch {
-        // Legacy config doesn't exist or couldn't be read
-      }
-      
-      // No config exists - first run
-      return DEFAULT_CONFIG;
-    }
-
-    // Read and parse config
+    // Try to read config file
     const data = await fs.readFile(configPath, 'utf-8');
     const userConfig = JSON.parse(data);
-
-    // Check if it's a legacy config in new location (shouldn't happen but handle it)
-    if (isLegacyConfig(userConfig)) {
-      const migratedConfig = migrateLegacyConfig(userConfig);
-      await saveConfig(migratedConfig);
-      return migratedConfig;
-    }
 
     // Validate and merge with defaults
     return mergeConfig(DEFAULT_CONFIG, userConfig);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      // File doesn't exist
+      // File doesn't exist - first run
       return DEFAULT_CONFIG;
     }
 
@@ -243,7 +195,7 @@ function mergeConfig(defaults: AppConfig, user: Partial<AppConfig>): AppConfig {
       ...defaults.execution,
       ...(user.execution || {}),
     },
-    registryUrl: user.registryUrl,  // Legacy field (optional)
+    registryUrl: user.registryUrl, // MCPJungle-specific (optional)
   };
 }
 

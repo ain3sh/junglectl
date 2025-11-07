@@ -26,9 +26,9 @@ export interface AppConfig {
     maxHistorySize: number;       // Limit history entries
     showConfidence: boolean;      // Show parser confidence scores in UI
   };
-  
-  // Legacy fields for migration (will be removed in v3.0)
-  registryUrl?: string;           // Old mcpjungle-specific field
+
+  // MCPJungle-specific optional field
+  registryUrl?: string;           // MCPJungle server URL
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -54,69 +54,3 @@ export const DEFAULT_CONFIG: AppConfig = {
     showConfidence: true,
   },
 };
-
-/**
- * Legacy config interface for backwards compatibility
- */
-export interface LegacyAppConfig {
-  version: string;
-  registryUrl: string;
-  cacheTTL: {
-    servers: number;
-    tools: number;
-    groups: number;
-    prompts: number;
-  };
-  theme: {
-    primaryColor: 'blue' | 'green' | 'cyan' | 'magenta' | 'yellow';
-    enableColors: boolean;
-  };
-  timeout: {
-    default: number;
-    invoke: number;
-  };
-  experimental?: {
-    enableSseSupport: boolean;
-  };
-}
-
-/**
- * Migrate legacy config (v1.0) to new format (v2.0)
- */
-export function migrateLegacyConfig(legacy: LegacyAppConfig): AppConfig {
-  return {
-    version: '2.0.0',
-    targetCLI: 'mcpjungle',       // Preserve mcpjungle as target for old users
-    defaultArgs: legacy.registryUrl && legacy.registryUrl !== 'http://127.0.0.1:8080'
-      ? ['--registry', legacy.registryUrl]
-      : [],
-    cacheTTL: {
-      structure: Math.max(
-        legacy.cacheTTL.servers,
-        legacy.cacheTTL.tools,
-        legacy.cacheTTL.groups,
-        legacy.cacheTTL.prompts
-      ),
-      output: legacy.cacheTTL.tools,
-    },
-    theme: legacy.theme,
-    timeout: {
-      default: legacy.timeout.default,
-      introspection: 10000,
-      execute: legacy.timeout.invoke,
-    },
-    execution: {
-      captureHistory: true,
-      maxHistorySize: 100,
-      showConfidence: true,
-    },
-    registryUrl: legacy.registryUrl,  // Keep for reference
-  };
-}
-
-/**
- * Check if config is legacy format
- */
-export function isLegacyConfig(config: any): config is LegacyAppConfig {
-  return config.registryUrl !== undefined && config.targetCLI === undefined;
-}

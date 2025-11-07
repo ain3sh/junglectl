@@ -1,12 +1,9 @@
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { DEFAULT_CONFIG, isLegacyConfig, migrateLegacyConfig } from '../types/config.js';
+import { DEFAULT_CONFIG } from '../types/config.js';
 export function getConfigDir() {
     return path.join(os.homedir(), '.climb');
-}
-function getLegacyConfigDir() {
-    return path.join(os.homedir(), '.junglectl');
 }
 export function getConfigFilePath() {
     return path.join(getConfigDir(), 'config.json');
@@ -25,36 +22,8 @@ export async function loadConfig() {
     try {
         await ensureConfigDir();
         const configPath = getConfigFilePath();
-        let configExists = false;
-        try {
-            await fs.access(configPath);
-            configExists = true;
-        }
-        catch {
-        }
-        if (!configExists) {
-            const legacyPath = path.join(getLegacyConfigDir(), 'config.json');
-            try {
-                await fs.access(legacyPath);
-                const legacyData = await fs.readFile(legacyPath, 'utf-8');
-                const legacyConfig = JSON.parse(legacyData);
-                if (isLegacyConfig(legacyConfig)) {
-                    const migratedConfig = migrateLegacyConfig(legacyConfig);
-                    await saveConfig(migratedConfig);
-                    return migratedConfig;
-                }
-            }
-            catch {
-            }
-            return DEFAULT_CONFIG;
-        }
         const data = await fs.readFile(configPath, 'utf-8');
         const userConfig = JSON.parse(data);
-        if (isLegacyConfig(userConfig)) {
-            const migratedConfig = migrateLegacyConfig(userConfig);
-            await saveConfig(migratedConfig);
-            return migratedConfig;
-        }
         return mergeConfig(DEFAULT_CONFIG, userConfig);
     }
     catch (error) {

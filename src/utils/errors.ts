@@ -138,10 +138,10 @@ export class ConfigError extends JungleCTLError {
     const hint = `
 Troubleshooting steps:
 1. Check config file for syntax errors
-2. File location: ~/.junglectl/config.json
+2. File location: ~/.climb/config.json
 3. Reset to defaults: Delete the config file and restart
 4. Check file permissions (must be readable/writable)
-5. Validate JSON syntax with: cat ~/.junglectl/config.json | jq
+5. Validate JSON syntax with: cat ~/.climb/config.json | jq
     `.trim();
     
     super(message, cause, hint);

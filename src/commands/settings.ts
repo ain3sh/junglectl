@@ -126,7 +126,7 @@ async function viewConfig(config: AppConfig): Promise<void> {
       'Max History Size': config.execution.maxHistorySize,
       'Show Confidence': config.execution.showConfidence,
     },
-    ...(config.registryUrl && { 'Legacy Registry URL': config.registryUrl }),
+    ...(config.registryUrl && { 'Registry URL (MCPJungle)': config.registryUrl }),
   };
 
   console.log(Formatters.prettyJson(displayConfig));
